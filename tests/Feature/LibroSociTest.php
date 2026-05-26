@@ -12,6 +12,7 @@ use App\Models\Verbale;
 use App\Services\SocioVariationService;
 use App\Services\VerbalePdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -172,7 +173,21 @@ class LibroSociTest extends TestCase
 
     public function test_public_dataset_import_loads_cadastral_codes(): void
     {
-        $this->artisan('comuni:import', ['--source' => 'mlocati'])
+        Http::fake([
+            'raw.githubusercontent.com/matteocontrini/comuni-json/*' => Http::response([
+                [
+                    'nome' => 'Roma',
+                    'codice' => '058091',
+                    'zona' => ['nome' => 'Centro'],
+                    'regione' => ['nome' => 'Lazio'],
+                    'provincia' => ['nome' => 'Roma'],
+                    'sigla' => 'RM',
+                    'codiceCatastale' => 'H501',
+                ],
+            ]),
+        ]);
+
+        $this->artisan('comuni:import', ['--source' => 'comuni-json'])
             ->assertSuccessful();
 
         $this->assertDatabaseHas('comunes', [
@@ -180,6 +195,8 @@ class LibroSociTest extends TestCase
             'codice_catastale' => 'H501',
             'regione' => 'Lazio',
         ]);
+
+        Http::assertSentCount(1);
     }
 
     public function test_libro_soci_exports_are_downloadable_via_http_routes(): void

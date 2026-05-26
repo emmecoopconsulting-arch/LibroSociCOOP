@@ -9,7 +9,7 @@ Mini gestionale Laravel + Filament per il libro soci di una cooperativa sociale.
 - MySQL/MariaDB in produzione
 - DomPDF per PDF da template Blade
 - PhpSpreadsheet per export Excel
-- mlocati/comuni-italiani per dataset pubblico comuni/codici catastali
+- matteocontrini/comuni-json per dataset pubblico comuni/codici catastali
 - Spatie Permission per ruoli `amministratore` e `operatore`
 - Spatie Activitylog e tabella `socio_changes` per storico variazioni
 
@@ -69,7 +69,7 @@ Al primo avvio il container genera la chiave Laravel, esegue le migrazioni e cre
 Comandi utili:
 
 ```bash
-docker compose exec app php artisan comuni:import --source=mlocati
+docker compose exec app php artisan comuni:import --source=comuni-json
 docker compose exec app php artisan test
 docker compose down
 docker compose down -v
@@ -82,7 +82,7 @@ docker compose down -v
 Dataset pubblico completo, consigliato per abilitare il calcolo del luogo di nascita da codice fiscale:
 
 ```bash
-php artisan comuni:import --source=mlocati
+php artisan comuni:import --source=comuni-json
 ```
 
 CSV:

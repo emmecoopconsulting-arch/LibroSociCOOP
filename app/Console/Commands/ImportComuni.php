@@ -6,21 +6,24 @@ use App\Models\Comune;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 use League\Csv\Reader;
-use MLocati\ComuniItaliani\Factory;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Throwable;
 
-#[Signature('comuni:import {file? : Percorso CSV/XLS/XLSX} {--source=file : file oppure mlocati} {--delimiter=; : Delimitatore CSV}')]
-#[Description('Importa comuni italiani da CSV, Excel o dataset pubblico mlocati/comuni-italiani.')]
+#[Signature('comuni:import {file? : Percorso CSV/XLS/XLSX} {--source=file : file, comuni-json oppure mlocati} {--delimiter=; : Delimitatore CSV}')]
+#[Description('Importa comuni italiani da CSV, Excel o dataset pubblico matteocontrini/comuni-json.')]
 class ImportComuni extends Command
 {
+    private const COMUNI_JSON_URL = 'https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json';
+
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        if ($this->option('source') === 'mlocati') {
-            return $this->importFromMlocati();
+        if (in_array($this->option('source'), ['comuni-json', 'mlocati'], true)) {
+            return $this->importFromComuniJson();
         }
 
         $file = (string) $this->argument('file');
@@ -53,30 +56,48 @@ class ImportComuni extends Command
         return self::SUCCESS;
     }
 
-    private function importFromMlocati(): int
+    private function importFromComuniJson(): int
     {
+        try {
+            $response = Http::timeout(30)->get(self::COMUNI_JSON_URL);
+        } catch (Throwable $exception) {
+            $this->error("Impossibile scaricare il dataset comuni-json: {$exception->getMessage()}");
+
+            return self::FAILURE;
+        }
+
+        if ($response->failed()) {
+            $this->error("Impossibile scaricare il dataset comuni-json: HTTP {$response->status()}");
+
+            return self::FAILURE;
+        }
+
+        $municipalities = $response->json();
+
+        if (! is_array($municipalities)) {
+            $this->error('Dataset comuni-json non valido.');
+
+            return self::FAILURE;
+        }
+
         $count = 0;
 
-        foreach ((new Factory)->getMunicipalities() as $municipality) {
-            $province = $municipality->getProvince();
-            $region = $province->getRegion();
+        foreach ($municipalities as $municipality) {
+            $normalized = $this->normalizeComuniJsonRow($municipality);
+
+            if (blank($normalized['codice_catastale']) || blank($normalized['denominazione'])) {
+                continue;
+            }
 
             Comune::query()->updateOrCreate(
-                ['codice_catastale' => $municipality->getCadastralCode()],
-                [
-                    'progressivo' => null,
-                    'denominazione' => $municipality->getName(),
-                    'ripartizione_geografica' => $region->getGeographicalSubdivision()->getName(),
-                    'regione' => $region->getName(),
-                    'provincia_unita_territoriale' => $province->getName(),
-                    'codice_catastale' => $municipality->getCadastralCode(),
-                ],
+                ['codice_catastale' => $normalized['codice_catastale']],
+                $normalized,
             );
 
             $count++;
         }
 
-        $this->info("Comuni importati/aggiornati da dataset pubblico: {$count}");
+        $this->info("Comuni importati/aggiornati da comuni-json: {$count}");
 
         return self::SUCCESS;
     }
@@ -113,6 +134,29 @@ class ImportComuni extends Command
             'regione' => $row['regione'] ?? $row['denominazione_regione'] ?? null,
             'provincia_unita_territoriale' => $row['provincia_unita_territoriale'] ?? $row['provincia'] ?? $row['denominazione_provincia'] ?? $row['sigla_provincia'] ?? null,
             'codice_catastale' => strtoupper((string) ($row['codice_catastale'] ?? $row['codice_belfiore'] ?? $row['belfiore'] ?? $row['codice'] ?? '')),
+        ];
+    }
+
+    private function normalizeComuniJsonRow(mixed $row): array
+    {
+        if (! is_array($row)) {
+            return [
+                'progressivo' => null,
+                'denominazione' => null,
+                'ripartizione_geografica' => null,
+                'regione' => null,
+                'provincia_unita_territoriale' => null,
+                'codice_catastale' => null,
+            ];
+        }
+
+        return [
+            'progressivo' => $row['codice'] ?? null,
+            'denominazione' => $row['nome'] ?? null,
+            'ripartizione_geografica' => data_get($row, 'zona.nome'),
+            'regione' => data_get($row, 'regione.nome'),
+            'provincia_unita_territoriale' => data_get($row, 'provincia.nome') ?? $row['sigla'] ?? null,
+            'codice_catastale' => strtoupper((string) ($row['codiceCatastale'] ?? '')),
         ];
     }
 
