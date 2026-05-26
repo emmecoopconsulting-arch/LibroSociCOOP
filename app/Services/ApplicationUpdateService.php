@@ -23,7 +23,7 @@ class ApplicationUpdateService
                 'can_update' => false,
                 'update_command' => $this->isDocker() ? '.\update.bat' : null,
                 'message' => $this->isDocker()
-                    ? 'L\'app gira in Docker: il container non contiene la cartella .git. Esegui update.bat dalla cartella del progetto su Windows.'
+                    ? 'L\'app gira in Docker: il container viene aggiornato scaricando la nuova immagine. Esegui update.bat dalla cartella dove si trova docker-compose.yml.'
                     : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.',
             ];
         }
@@ -60,7 +60,7 @@ class ApplicationUpdateService
     {
         if (! $this->isGitRepository()) {
             throw new RuntimeException($this->isDocker()
-                ? 'L\'app gira in Docker: esegui update.bat dalla cartella del progetto su Windows.'
+                ? 'L\'app gira in Docker: esegui update.bat dalla cartella dove si trova docker-compose.yml.'
                 : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.');
         }
 
