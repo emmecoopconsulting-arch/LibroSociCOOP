@@ -12,6 +12,18 @@ class ApplicationUpdateService
      */
     public function check(): array
     {
+        if (! $this->isGitRepository()) {
+            return [
+                'available' => false,
+                'current' => '-',
+                'remote' => '-',
+                'behind' => 0,
+                'branch' => '-',
+                'dirty' => false,
+                'message' => 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.',
+            ];
+        }
+
         $current = $this->run(['git', 'rev-parse', '--short', 'HEAD']);
         $branch = $this->run(['git', 'branch', '--show-current']);
         $dirty = filled($this->run(['git', 'status', '--porcelain']));
@@ -40,6 +52,10 @@ class ApplicationUpdateService
      */
     public function update(): array
     {
+        if (! $this->isGitRepository()) {
+            throw new RuntimeException('Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.');
+        }
+
         $check = $this->check();
 
         if ($check['dirty']) {
@@ -65,6 +81,15 @@ class ApplicationUpdateService
 
             return 'origin/'.$branch;
         }
+    }
+
+    private function isGitRepository(): bool
+    {
+        $process = new Process(['git', 'rev-parse', '--is-inside-work-tree'], base_path());
+        $process->setTimeout(30);
+        $process->run();
+
+        return $process->isSuccessful() && trim($process->getOutput()) === 'true';
     }
 
     /**
