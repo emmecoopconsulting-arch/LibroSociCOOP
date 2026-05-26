@@ -13,6 +13,7 @@ use App\Models\Verbale;
 use App\Services\SocioVariationService;
 use App\Services\VerbalePdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -22,6 +23,49 @@ use Tests\TestCase;
 class LibroSociTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_initial_admin_setup_is_required_for_default_credentials(): void
+    {
+        $admin = User::factory()->create([
+            'name' => 'Amministratore',
+            'username' => null,
+            'email' => 'admin@example.com',
+            'password' => 'password',
+        ]);
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $this->get('/admin/login')
+            ->assertRedirect('/setup');
+    }
+
+    public function test_initial_admin_setup_updates_default_admin_and_logs_in(): void
+    {
+        $admin = User::factory()->create([
+            'name' => 'Amministratore',
+            'username' => null,
+            'email' => 'admin@example.com',
+            'password' => 'password',
+        ]);
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $this->post('/setup', [
+            'username' => 'direzione',
+            'password' => 'nuova-password',
+            'password_confirmation' => 'nuova-password',
+        ])->assertRedirect('/admin');
+
+        $admin->refresh();
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertSame('direzione', $admin->name);
+        $this->assertSame('direzione', $admin->username);
+        $this->assertTrue(Hash::check('nuova-password', $admin->password));
+
+        $this->get('/setup')
+            ->assertRedirect('/admin');
+    }
 
     public function test_filament_pages_are_available_to_admin(): void
     {

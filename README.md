@@ -41,10 +41,7 @@ php artisan serve
 
 Pannello admin: `http://127.0.0.1:8000/admin`
 
-Utente iniziale creato dal seed:
-
-- email: `admin@example.com`
-- password: `password`
+Al primo accesso il pannello mostra il setup iniziale per impostare nome utente e password amministratore. Questi valori sostituiscono le credenziali tecniche create dal seed.
 
 ## Docker
 
@@ -61,10 +58,7 @@ http://localhost:8000/admin
 ```
 
 Il database MySQL è esposto sulla porta locale `3307` e i dati vengono salvati nel volume Docker `mysql_data`.
-Al primo avvio il container genera la chiave Laravel, esegue le migrazioni e crea l'utente iniziale:
-
-- email: `admin@example.com`
-- password: `password`
+Al primo avvio il container genera la chiave Laravel, esegue le migrazioni e prepara l'utente amministratore iniziale. Aprendo il pannello viene richiesto di impostare nome utente e password definitivi.
 
 Comandi utili:
 

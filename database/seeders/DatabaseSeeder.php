@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
 
         $admin = User::query()->firstOrCreate(
             ['email' => 'admin@example.com'],
-            ['name' => 'Amministratore', 'password' => 'password'],
+            ['name' => 'Amministratore', 'username' => null, 'password' => 'password'],
         );
 
         $admin->assignRole($adminRole);
