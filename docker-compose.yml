@@ -1,7 +1,7 @@
 services:
   app:
-    build:
-      context: .
+    image: ghcr.io/emmecoopconsulting-arch/librosocicoop:latest
+    pull_policy: always
     ports:
       - "8000:80"
     environment:
@@ -45,4 +45,3 @@ services:
 volumes:
   app_storage:
   mysql_data:
-

@@ -48,10 +48,10 @@ Utente iniziale creato dal seed:
 
 ## Docker
 
-Per avviare l'app su un altro PC basta avere Docker installato, clonare il repository ed eseguire:
+Per avviare l'app su un altro PC basta avere Docker installato, scaricare i file `docker-compose.yml` e `update.bat`, poi eseguire:
 
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
 L'app sarà disponibile su:
@@ -77,15 +77,27 @@ docker compose down -v
 
 `docker compose down -v` elimina anche database e file persistenti salvati nei volumi.
 
+### Pubblicazione immagine Docker
+
+Le immagini Docker vengono pubblicate automaticamente su GitHub Container Registry:
+
+```text
+ghcr.io/emmecoopconsulting-arch/librosocicoop:latest
+```
+
+Il workflow `.github/workflows/docker-image.yml` costruisce e pubblica l'immagine a ogni push su `main`.
+
+Se l'app deve essere installata senza login GitHub sui PC degli utenti, rendere pubblico il package GHCR dalle impostazioni del package su GitHub. In alternativa, eseguire prima `docker login ghcr.io` su ogni PC.
+
 ### Aggiornamento su Windows con Docker
 
-Se il progetto e stato installato con `git clone`, per aggiornare applicazione e container basta eseguire dalla cartella del progetto:
+Per aggiornare applicazione e container basta eseguire dalla cartella dove si trova `docker-compose.yml`:
 
 ```bat
 update.bat
 ```
 
-Lo script esegue `git pull`, ricostruisce il container Docker, applica le migrazioni e pulisce la cache.
+Lo script scarica l'ultima immagine Docker pubblicata su GitHub, riavvia il container, applica le migrazioni e pulisce la cache.
 La pagina admin `Sistema > Aggiornamenti` mostra questo comando quando l'app gira dentro Docker.
 
 ## Import comuni

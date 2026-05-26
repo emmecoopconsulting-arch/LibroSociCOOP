@@ -3,12 +3,12 @@ setlocal
 
 cd /d "%~dp0"
 
-echo Aggiornamento sorgenti da GitHub...
-git pull --ff-only
+echo Scaricamento nuova immagine Docker...
+docker compose pull
 if errorlevel 1 goto error
 
-echo Ricostruzione e riavvio Docker...
-docker compose up -d --build
+echo Riavvio applicazione...
+docker compose up -d
 if errorlevel 1 goto error
 
 echo Applicazione migrazioni database...
