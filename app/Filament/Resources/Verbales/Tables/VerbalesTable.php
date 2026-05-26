@@ -59,12 +59,12 @@ class VerbalesTable
                 Action::make('genera')
                     ->label('Genera PDF')
                     ->icon('heroicon-o-document-arrow-down')
-                    ->visible(fn (Verbale $record): bool => $record->tipo === 'ammissione')
-                    ->action(function (Verbale $record) {
-                        $verbale = app(VerbalePdfService::class)->generateAdmission($record->socio);
-
-                        return response()->download(Storage::disk('local')->path($verbale->file_path));
-                    }),
+                    ->action(fn (Verbale $record) => app(VerbalePdfService::class)->downloadResponse($record, regenerate: true)),
+                Action::make('scarica')
+                    ->label('Scarica PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->visible(fn (Verbale $record): bool => filled($record->file_path) && Storage::disk('local')->exists($record->file_path))
+                    ->action(fn (Verbale $record) => app(VerbalePdfService::class)->downloadResponse($record)),
                 EditAction::make(),
             ])
             ->toolbarActions([

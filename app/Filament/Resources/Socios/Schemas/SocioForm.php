@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Socios\Schemas;
 
 use App\Models\Socio;
+use App\Models\SocioWorkContract;
 use App\Rules\CodiceFiscale;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -59,7 +60,8 @@ class SocioForm
                         Select::make('tipologia')
                             ->label('Tipologia socio')
                             ->options(Socio::TIPOLOGIE)
-                            ->required(),
+                            ->required()
+                            ->live(),
                         Select::make('stato')
                             ->label('Stato')
                             ->options(Socio::STATI)
@@ -81,6 +83,32 @@ class SocioForm
                             ->numeric()
                             ->default(0)
                             ->prefix('EUR'),
+                    ]),
+                Section::make('Contratto di lavoro')
+                    ->columns(2)
+                    ->visible(fn ($get): bool => $get('tipologia') === 'lavoratore')
+                    ->schema([
+                        Select::make('contract_tipo_contratto')
+                            ->label('Tipo contratto')
+                            ->options(SocioWorkContract::TIPI_CONTRATTO)
+                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore')
+                            ->live(),
+                        DatePicker::make('contract_data_inizio')
+                            ->label('Data inizio contratto')
+                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore'),
+                        DatePicker::make('contract_data_fine')
+                            ->label('Data fine contratto')
+                            ->visible(fn ($get): bool => $get('contract_tipo_contratto') === 'determinato')
+                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore' && $get('contract_tipo_contratto') === 'determinato'),
+                        TextInput::make('contract_ore_settimanali')
+                            ->label('Ore settimanali')
+                            ->numeric()
+                            ->step('0.25')
+                            ->minValue(0)
+                            ->maxValue(60),
+                        Textarea::make('contract_note')
+                            ->label('Note contratto')
+                            ->columnSpanFull(),
                     ]),
                 Section::make('Contatti')
                     ->columns(2)

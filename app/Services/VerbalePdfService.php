@@ -8,6 +8,7 @@ use App\Models\SocioVariation;
 use App\Models\Verbale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VerbalePdfService
 {
@@ -59,6 +60,18 @@ class VerbalePdfService
         }
 
         return $this->generateVariation($verbale);
+    }
+
+    public function downloadResponse(Verbale $verbale, bool $regenerate = false): BinaryFileResponse
+    {
+        if ($regenerate || blank($verbale->file_path) || ! Storage::disk('local')->exists($verbale->file_path)) {
+            $verbale = $this->generate($verbale);
+        }
+
+        return response()->download(
+            Storage::disk('local')->path($verbale->file_path),
+            $this->downloadFilename($verbale),
+        );
     }
 
     public function generateVariation(Verbale $verbale): Verbale
@@ -168,5 +181,13 @@ class VerbalePdfService
         $year = $socio->data_ammissione?->format('Y') ?? now()->format('Y');
 
         return "Verbale {$socio->codice_socio}/{$year}";
+    }
+
+    private function downloadFilename(Verbale $verbale): string
+    {
+        $tipo = str(SocioVariation::TIPI[$verbale->tipo] ?? Verbale::TIPI[$verbale->tipo] ?? $verbale->tipo)->slug();
+        $codiceSocio = str($verbale->socio?->codice_socio ?? 'socio')->slug();
+
+        return "verbale-{$codiceSocio}-{$tipo}-{$verbale->id}.pdf";
     }
 }

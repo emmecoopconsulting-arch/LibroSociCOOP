@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\IntestazioneDocumenti;
+use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Models\Comune;
 use App\Models\DocumentHeaderSetting;
 use App\Models\Socio;
@@ -63,6 +64,42 @@ class LibroSociTest extends TestCase
 
         $this->assertDatabaseHas(DocumentHeaderSetting::class, [
             'text' => "FTM Cooperativa Sociale\nUnità locale: Novi Ligure",
+        ]);
+    }
+
+    public function test_worker_member_created_from_filament_form_saves_work_contract(): void
+    {
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        Livewire::actingAs($admin)
+            ->test(CreateSocio::class)
+            ->set('data.nome', 'Mario')
+            ->set('data.cognome', 'Rossi')
+            ->set('data.codice_fiscale', 'RSSMRA80A01H501U')
+            ->set('data.tipologia', 'lavoratore')
+            ->set('data.stato', 'attivo')
+            ->set('data.data_ammissione', '2026-05-25')
+            ->set('data.capitale_versato', 100)
+            ->set('data.contract_tipo_contratto', 'determinato')
+            ->set('data.contract_data_inizio', '2026-06-01')
+            ->set('data.contract_data_fine', '2026-12-31')
+            ->set('data.contract_ore_settimanali', 30)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $socio = Socio::query()
+            ->where('codice_fiscale', 'RSSMRA80A01H501U')
+            ->firstOrFail();
+
+        $this->assertDatabaseHas(SocioWorkContract::class, [
+            'socio_id' => $socio->id,
+            'tipo_contratto' => 'determinato',
+            'data_inizio' => '2026-06-01 00:00:00',
+            'data_fine' => '2026-12-31 00:00:00',
+            'ore_settimanali' => 30,
+            'stato' => 'attivo',
         ]);
     }
 
@@ -341,6 +378,35 @@ class LibroSociTest extends TestCase
 
         $verbale = app(VerbalePdfService::class)->generate($variation->verbale);
 
+        $this->assertSame('generato', $verbale->stato);
+        Storage::disk('local')->assertExists($verbale->file_path);
+    }
+
+    public function test_recesso_variation_verbale_pdf_is_saved(): void
+    {
+        Storage::fake('local');
+
+        $socio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Luigi',
+            'cognome' => 'Verdi',
+            'codice_fiscale' => 'VRDLGI80A01H501O',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        $variation = app(SocioVariationService::class)->createAndApply([
+            'socio_id' => $socio->id,
+            'tipo' => 'recesso',
+            'data_verbale' => '2026-09-20',
+            'data_effetto' => '2026-09-30',
+            'note' => 'Richiesta di recesso del socio.',
+        ]);
+
+        $verbale = app(VerbalePdfService::class)->generate($variation->verbale);
+
+        $this->assertSame('recesso', $socio->refresh()->stato);
         $this->assertSame('generato', $verbale->stato);
         Storage::disk('local')->assertExists($verbale->file_path);
     }
