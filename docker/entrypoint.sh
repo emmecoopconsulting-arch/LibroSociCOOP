@@ -23,12 +23,7 @@ fi
 
 if [ -n "${DB_HOST:-}" ]; then
     echo "Waiting for database at ${DB_HOST}:${DB_PORT:-3306}..."
-    until mysqladmin ping \
-        -h"${DB_HOST}" \
-        -P"${DB_PORT:-3306}" \
-        -u"${DB_USERNAME:-root}" \
-        -p"${DB_PASSWORD:-}" \
-        --silent; do
+    until nc -z "${DB_HOST}" "${DB_PORT:-3306}"; do
         sleep 2
     done
 fi
@@ -44,4 +39,3 @@ if [ "${RUN_SEEDERS:-true}" = "true" ]; then
 fi
 
 exec "$@"
-

@@ -24,6 +24,7 @@ RUN apt-get update \
         libonig-dev \
         libpng-dev \
         libzip-dev \
+        netcat-openbsd \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" bcmath gd intl mbstring opcache pdo_mysql zip \
