@@ -46,6 +46,37 @@ Utente iniziale creato dal seed:
 - email: `admin@example.com`
 - password: `password`
 
+## Docker
+
+Per avviare l'app su un altro PC basta avere Docker installato, clonare il repository ed eseguire:
+
+```bash
+docker compose up --build
+```
+
+L'app sarà disponibile su:
+
+```text
+http://localhost:8000/admin
+```
+
+Il database MySQL è esposto sulla porta locale `3307` e i dati vengono salvati nel volume Docker `mysql_data`.
+Al primo avvio il container genera la chiave Laravel, esegue le migrazioni e crea l'utente iniziale:
+
+- email: `admin@example.com`
+- password: `password`
+
+Comandi utili:
+
+```bash
+docker compose exec app php artisan comuni:import --source=mlocati
+docker compose exec app php artisan test
+docker compose down
+docker compose down -v
+```
+
+`docker compose down -v` elimina anche database e file persistenti salvati nei volumi.
+
 ## Import comuni
 
 Dataset pubblico completo, consigliato per abilitare il calcolo del luogo di nascita da codice fiscale:
