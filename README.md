@@ -77,6 +77,17 @@ docker compose down -v
 
 `docker compose down -v` elimina anche database e file persistenti salvati nei volumi.
 
+### Aggiornamento su Windows con Docker
+
+Se il progetto e stato installato con `git clone`, per aggiornare applicazione e container basta eseguire dalla cartella del progetto:
+
+```bat
+update.bat
+```
+
+Lo script esegue `git pull`, ricostruisce il container Docker, applica le migrazioni e pulisce la cache.
+La pagina admin `Sistema > Aggiornamenti` mostra questo comando quando l'app gira dentro Docker.
+
 ## Import comuni
 
 Dataset pubblico completo, consigliato per abilitare il calcolo del luogo di nascita da codice fiscale:

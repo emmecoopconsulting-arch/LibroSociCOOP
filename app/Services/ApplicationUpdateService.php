@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 class ApplicationUpdateService
 {
     /**
-     * @return array{available: bool, current: string, remote: string, behind: int, branch: string, dirty: bool, message: string}
+     * @return array{available: bool, current: string, remote: string, behind: int, branch: string, dirty: bool, can_update: bool, update_command: string|null, message: string}
      */
     public function check(): array
     {
@@ -20,7 +20,11 @@ class ApplicationUpdateService
                 'behind' => 0,
                 'branch' => '-',
                 'dirty' => false,
-                'message' => 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.',
+                'can_update' => false,
+                'update_command' => $this->isDocker() ? '.\update.bat' : null,
+                'message' => $this->isDocker()
+                    ? 'L\'app gira in Docker: il container non contiene la cartella .git. Esegui update.bat dalla cartella del progetto su Windows.'
+                    : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.',
             ];
         }
 
@@ -41,6 +45,8 @@ class ApplicationUpdateService
             'behind' => $behind,
             'branch' => $branch,
             'dirty' => $dirty,
+            'can_update' => true,
+            'update_command' => null,
             'message' => $behind > 0
                 ? "Sono disponibili {$behind} aggiornamenti."
                 : 'Applicazione già aggiornata.',
@@ -53,7 +59,9 @@ class ApplicationUpdateService
     public function update(): array
     {
         if (! $this->isGitRepository()) {
-            throw new RuntimeException('Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.');
+            throw new RuntimeException($this->isDocker()
+                ? 'L\'app gira in Docker: esegui update.bat dalla cartella del progetto su Windows.'
+                : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.');
         }
 
         $check = $this->check();
@@ -90,6 +98,11 @@ class ApplicationUpdateService
         $process->run();
 
         return $process->isSuccessful() && trim($process->getOutput()) === 'true';
+    }
+
+    private function isDocker(): bool
+    {
+        return file_exists('/.dockerenv');
     }
 
     /**

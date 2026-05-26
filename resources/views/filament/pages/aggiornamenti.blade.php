@@ -33,6 +33,13 @@
                         Ci sono modifiche locali: l'aggiornamento automatico e bloccato per non sovrascriverle.
                     </div>
                 @endif
+
+                @if (filled($status['update_command'] ?? null))
+                    <div class="mt-3">
+                        Comando Windows:
+                        <code class="rounded bg-white/70 px-2 py-1 font-mono">{{ $status['update_command'] }}</code>
+                    </div>
+                @endif
             </div>
 
             <div class="flex flex-wrap gap-3">
@@ -45,7 +52,7 @@
                     icon="heroicon-o-cloud-arrow-down"
                     wire:click="update"
                     wire:confirm="Vuoi aggiornare l'applicazione da GitHub?"
-                    :disabled="! ($status['available'] ?? false) || ($status['dirty'] ?? false)"
+                    :disabled="! ($status['can_update'] ?? false) || ! ($status['available'] ?? false) || ($status['dirty'] ?? false)"
                 >
                     Aggiorna ora
                 </x-filament::button>
