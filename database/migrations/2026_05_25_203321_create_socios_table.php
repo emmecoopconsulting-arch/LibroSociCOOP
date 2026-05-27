@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('socios', function (Blueprint $table) {
             $table->id();
             $table->string('codice_socio', 20)->unique();
-            $table->enum('tipologia', ['fondatore', 'lavoratore', 'volontario', 'ordinario']);
+            $table->enum('tipologia', ['fondatore', 'volontario', 'ordinario']);
             $table->string('nome');
             $table->string('cognome');
             $table->string('codice_fiscale', 16)->unique();

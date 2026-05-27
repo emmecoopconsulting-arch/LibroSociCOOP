@@ -39,7 +39,6 @@ class Socio extends Model
 
     public const TIPOLOGIE = [
         'fondatore' => 'Fondatore',
-        'lavoratore' => 'Lavoratore',
         'volontario' => 'Volontario',
         'ordinario' => 'Ordinario',
     ];

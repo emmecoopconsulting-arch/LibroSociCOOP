@@ -61,6 +61,7 @@ class SocioForm
                             ->label('Tipologia socio')
                             ->options(Socio::TIPOLOGIE)
                             ->required()
+                            ->default('ordinario')
                             ->live(),
                         Select::make('stato')
                             ->label('Stato')
@@ -86,20 +87,20 @@ class SocioForm
                     ]),
                 Section::make('Contratto di lavoro')
                     ->columns(2)
-                    ->visible(fn ($get): bool => $get('tipologia') === 'lavoratore')
+                    ->visible(fn ($get): bool => $get('tipologia') === 'ordinario')
                     ->schema([
                         Select::make('contract_tipo_contratto')
                             ->label('Tipo contratto')
                             ->options(SocioWorkContract::TIPI_CONTRATTO)
-                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore')
+                            ->required(fn ($get): bool => filled($get('contract_data_inizio')) || filled($get('contract_data_fine')) || filled($get('contract_ore_settimanali')))
                             ->live(),
                         DatePicker::make('contract_data_inizio')
                             ->label('Data inizio contratto')
-                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore'),
+                            ->required(fn ($get): bool => filled($get('contract_tipo_contratto')) || filled($get('contract_data_fine')) || filled($get('contract_ore_settimanali'))),
                         DatePicker::make('contract_data_fine')
                             ->label('Data fine contratto')
                             ->visible(fn ($get): bool => $get('contract_tipo_contratto') === 'determinato')
-                            ->required(fn ($get): bool => $get('tipologia') === 'lavoratore' && $get('contract_tipo_contratto') === 'determinato'),
+                            ->required(fn ($get): bool => $get('contract_tipo_contratto') === 'determinato'),
                         TextInput::make('contract_ore_settimanali')
                             ->label('Ore settimanali')
                             ->numeric()

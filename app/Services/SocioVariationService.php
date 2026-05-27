@@ -50,9 +50,9 @@ class SocioVariationService
 
     private function validateBusinessRules(Socio $socio, array $data): void
     {
-        if ($this->isWorkVariation($data['tipo']) && $socio->tipologia !== 'lavoratore') {
+        if ($this->isWorkVariation($data['tipo']) && $socio->tipologia !== 'ordinario') {
             throw ValidationException::withMessages([
-                'socio_id' => 'Le variazioni contrattuali sono disponibili solo per i soci lavoratori.',
+                'socio_id' => 'Le variazioni contrattuali sono disponibili solo per i soci ordinari.',
             ]);
         }
 

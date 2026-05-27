@@ -111,7 +111,7 @@ class LibroSociTest extends TestCase
         ]);
     }
 
-    public function test_worker_member_created_from_filament_form_saves_work_contract(): void
+    public function test_ordinary_member_created_from_filament_form_saves_work_contract(): void
     {
         $admin = User::factory()->create();
         Role::findOrCreate('amministratore');
@@ -122,7 +122,7 @@ class LibroSociTest extends TestCase
             ->set('data.nome', 'Mario')
             ->set('data.cognome', 'Rossi')
             ->set('data.codice_fiscale', 'RSSMRA80A01H501U')
-            ->set('data.tipologia', 'lavoratore')
+            ->set('data.tipologia', 'ordinario')
             ->set('data.stato', 'attivo')
             ->set('data.data_ammissione', '2026-05-25')
             ->set('data.capitale_versato', 100)
@@ -317,7 +317,7 @@ class LibroSociTest extends TestCase
     public function test_guided_work_variation_creates_verbale_and_contract(): void
     {
         $socio = Socio::create([
-            'tipologia' => 'lavoratore',
+            'tipologia' => 'ordinario',
             'nome' => 'Mario',
             'cognome' => 'Rossi',
             'codice_fiscale' => 'RSSMRA80A01H501U',
@@ -359,7 +359,7 @@ class LibroSociTest extends TestCase
     public function test_work_termination_variation_closes_contract_and_member_status(): void
     {
         $socio = Socio::create([
-            'tipologia' => 'lavoratore',
+            'tipologia' => 'ordinario',
             'nome' => 'Luigi',
             'cognome' => 'Verdi',
             'codice_fiscale' => 'VRDLGI80A01H501O',
@@ -395,7 +395,7 @@ class LibroSociTest extends TestCase
         Storage::fake('local');
 
         $socio = Socio::create([
-            'tipologia' => 'lavoratore',
+            'tipologia' => 'ordinario',
             'nome' => 'Mario',
             'cognome' => 'Rossi',
             'codice_fiscale' => 'RSSMRA80A01H501U',

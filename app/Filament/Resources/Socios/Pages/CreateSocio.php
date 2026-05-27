@@ -51,7 +51,7 @@ class CreateSocio extends CreateRecord
 
     private function saveWorkContract(Model $socio, array $contractData): void
     {
-        if ($socio->tipologia !== 'lavoratore') {
+        if ($socio->tipologia !== 'ordinario' || ! $this->hasContractData($contractData)) {
             return;
         }
 
@@ -60,5 +60,14 @@ class CreateSocio extends CreateRecord
             'socio_id' => $socio->id,
             'stato' => 'attivo',
         ]);
+    }
+
+    private function hasContractData(array $contractData): bool
+    {
+        return filled($contractData['tipo_contratto'] ?? null)
+            || filled($contractData['data_inizio'] ?? null)
+            || filled($contractData['data_fine'] ?? null)
+            || filled($contractData['ore_settimanali'] ?? null)
+            || filled($contractData['note'] ?? null);
     }
 }
