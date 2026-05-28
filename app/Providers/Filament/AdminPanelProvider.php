@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Auth\Login;
+use App\Filament\Resources\Socios\SocioResource;
 use App\Http\Middleware\RedirectToInitialAdminSetup;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -37,6 +38,7 @@ class AdminPanelProvider extends PanelProvider
             ->navigationItems([
                 NavigationItem::make('Soci')
                     ->icon('heroicon-o-users')
+                    ->url(fn (): string => SocioResource::getUrl())
                     ->sort(20),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
