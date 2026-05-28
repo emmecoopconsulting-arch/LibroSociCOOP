@@ -13,9 +13,8 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
@@ -87,7 +86,7 @@ class ImportaSoci extends Page
                                         ->afterStateUpdated(fn (?TemporaryUploadedFile $state) => $this->loadWorkbook($state)),
                                     Select::make('sheet')
                                         ->label('Foglio')
-                                        ->options(fn (Get $get): array => $this->availableSheets($get))
+                                        ->options(fn (): array => $this->availableSheets())
                                         ->required()
                                         ->live()
                                         ->visible(fn (): bool => $this->sheets !== [])
@@ -104,8 +103,10 @@ class ImportaSoci extends Page
                             Section::make('Mappatura colonne')
                                 ->description('Associa le colonne del file ai campi anagrafici. Nome, cognome e codice fiscale sono obbligatori.')
                                 ->schema([
-                                    Grid::make(2)
-                                        ->schema($this->mappingFields()),
+                                    View::make('filament.pages.partials.importa-soci-mapping')
+                                        ->viewData(fn ($livewire): array => [
+                                            'livewire' => $livewire,
+                                        ]),
                                     Toggle::make('update_existing')
                                         ->label('Aggiorna soci esistenti con lo stesso codice fiscale')
                                         ->helperText('Se disattivato, le righe già presenti vengono saltate.')
@@ -251,24 +252,6 @@ class ImportaSoci extends Page
             ->send();
     }
 
-    /**
-     * @return array<int, Select>
-     */
-    private function mappingFields(): array
-    {
-        return collect(SocioExcelImportService::FIELDS)
-            ->map(fn (string $label, string $field): Select => Select::make("mapping.{$field}")
-                ->label($label)
-                ->options(fn (Get $get): array => $this->availableColumns($get))
-                ->placeholder('Non importare')
-                ->native(false)
-                ->live()
-                ->afterStateUpdated(fn () => $this->refreshPreview())
-                ->required(in_array($field, ['nome', 'cognome', 'codice_fiscale'], true)))
-            ->values()
-            ->all();
-    }
-
     private function uploadedFile(): ?TemporaryUploadedFile
     {
         $file = $this->data['file'] ?? null;
@@ -279,16 +262,29 @@ class ImportaSoci extends Page
     /**
      * @return array<string, string>
      */
-    private function availableSheets(?Get $get = null): array
+    public function availableSheets(): array
     {
-        return $this->sheets ?: ($get?->array('/data.sheets') ?: ($this->data['sheets'] ?? []));
+        return $this->sheets ?: ($this->data['sheets'] ?? []);
     }
 
     /**
      * @return array<string, string>
      */
-    private function availableColumns(?Get $get = null): array
+    public function availableColumns(): array
     {
-        return $this->columns ?: ($get?->array('/data.columns') ?: ($this->data['columns'] ?? []));
+        return $this->columns ?: ($this->data['columns'] ?? []);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function importFields(): array
+    {
+        return SocioExcelImportService::FIELDS;
+    }
+
+    public function isRequiredImportField(string $field): bool
+    {
+        return in_array($field, ['nome', 'cognome', 'codice_fiscale'], true);
     }
 }
