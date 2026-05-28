@@ -16,6 +16,7 @@ use App\Services\SocioVariationService;
 use App\Services\VerbalePdfService;
 use App\Services\VerbaleTemplateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -184,6 +185,8 @@ class LibroSociTest extends TestCase
 
     public function test_ordinary_member_created_from_filament_form_saves_work_contract(): void
     {
+        Storage::fake('local');
+
         $admin = User::factory()->create();
         Role::findOrCreate('amministratore');
         $admin->assignRole('amministratore');
@@ -196,6 +199,7 @@ class LibroSociTest extends TestCase
             ->set('data.tipologia', 'ordinario')
             ->set('data.stato', 'attivo')
             ->set('data.data_ammissione', '2026-05-25')
+            ->set('data.verbale_cda_path', UploadedFile::fake()->create('verbale-cda.pdf', 20, 'application/pdf'))
             ->set('data.capitale_versato', 100)
             ->set('data.contract_tipo_contratto', 'determinato')
             ->set('data.contract_data_inizio', '2026-06-01')
@@ -207,6 +211,9 @@ class LibroSociTest extends TestCase
         $socio = Socio::query()
             ->where('codice_fiscale', 'RSSMRA80A01H501U')
             ->firstOrFail();
+
+        $this->assertNotNull($socio->verbale_cda_path);
+        Storage::disk('local')->assertExists($socio->verbale_cda_path);
 
         $this->assertDatabaseHas(SocioWorkContract::class, [
             'socio_id' => $socio->id,

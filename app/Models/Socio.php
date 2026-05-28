@@ -27,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'telefono',
     'email',
     'data_ammissione',
+    'verbale_cda_path',
     'stato',
     'data_uscita',
     'quota_sociale',

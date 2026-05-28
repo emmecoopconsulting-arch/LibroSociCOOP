@@ -6,6 +6,7 @@ use App\Models\Socio;
 use App\Models\SocioWorkContract;
 use App\Rules\CodiceFiscale;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -72,6 +73,16 @@ class SocioForm
                         DatePicker::make('data_ammissione')
                             ->label('Data ammissione')
                             ->required(fn ($get): bool => $get('stato') === 'attivo'),
+                        FileUpload::make('verbale_cda_path')
+                            ->label('Verbale CDA')
+                            ->disk('local')
+                            ->directory('verbali-cda')
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->maxSize(10240)
+                            ->downloadable()
+                            ->openable()
+                            ->required(fn (?Socio $record): bool => ! $record)
+                            ->helperText('Caricare il verbale del CDA in PDF prima della generazione del verbale di ammissione.'),
                         DatePicker::make('data_uscita')
                             ->label('Data uscita'),
                         TextInput::make('quota_sociale')
