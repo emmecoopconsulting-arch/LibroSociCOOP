@@ -59,7 +59,7 @@ class SocioExcelImportService
     }
 
     /**
-     * @return array<int, string>
+     * @return array<string, string>
      */
     public function columnOptions(string $path, ?string $sheetName = null, bool $firstRowContainsHeaders = true): array
     {
@@ -77,14 +77,14 @@ class SocioExcelImportService
             $letter = Coordinate::stringFromColumnIndex($index);
             $heading = $firstRowContainsHeaders ? trim((string) $sheet->getCell([$index, 1])->getFormattedValue()) : '';
 
-            $options[$index - 1] = filled($heading) ? "{$letter} - {$heading}" : $letter;
+            $options[(string) ($index - 1)] = filled($heading) ? "{$letter} - {$heading}" : $letter;
         }
 
         return $options;
     }
 
     /**
-     * @return array<string, int|null>
+     * @return array<string, string|null>
      */
     public function guessedMapping(string $path, ?string $sheetName = null): array
     {
@@ -109,7 +109,7 @@ class SocioExcelImportService
                 $column = array_search($this->normalizeHeader($guess), $headers, true);
 
                 if ($column !== false) {
-                    $mapping[$field] = $column;
+                    $mapping[$field] = (string) $column;
                     break;
                 }
             }

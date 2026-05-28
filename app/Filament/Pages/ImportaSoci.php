@@ -38,7 +38,9 @@ class ImportaSoci extends Page
     public ?array $data = [
         'first_row_contains_headers' => true,
         'update_existing' => false,
+        'columns' => [],
         'mapping' => [],
+        'sheets' => [],
     ];
 
     /**
@@ -47,7 +49,7 @@ class ImportaSoci extends Page
     public array $sheets = [];
 
     /**
-     * @var array<int|string, string>
+     * @var array<string, string>
      */
     public array $columns = [];
 
@@ -84,7 +86,7 @@ class ImportaSoci extends Page
                                         ->afterStateUpdated(fn (?TemporaryUploadedFile $state) => $this->loadWorkbook($state)),
                                     Select::make('sheet')
                                         ->label('Foglio')
-                                        ->options(fn (): array => $this->sheets)
+                                        ->options(fn (): array => $this->availableSheets())
                                         ->required()
                                         ->live()
                                         ->visible(fn (): bool => $this->sheets !== [])
@@ -159,6 +161,7 @@ class ImportaSoci extends Page
         try {
             $sheets = app(SocioExcelImportService::class)->sheetNames($file->getRealPath());
             $this->sheets = array_combine($sheets, $sheets) ?: [];
+            $this->data['sheets'] = $this->sheets;
             $this->data['sheet'] = $sheets[0] ?? null;
 
             $this->refreshColumnsAndPreview();
@@ -184,6 +187,7 @@ class ImportaSoci extends Page
         $hasHeaders = (bool) ($this->data['first_row_contains_headers'] ?? true);
 
         $this->columns = $service->columnOptions($file->getRealPath(), $sheet, $hasHeaders);
+        $this->data['columns'] = $this->columns;
 
         if ($hasHeaders) {
             $this->data['mapping'] = $service->guessedMapping($file->getRealPath(), $sheet);
@@ -254,7 +258,7 @@ class ImportaSoci extends Page
         return collect(SocioExcelImportService::FIELDS)
             ->map(fn (string $label, string $field): Select => Select::make("mapping.{$field}")
                 ->label($label)
-                ->options(fn (): array => $this->columns)
+                ->options(fn (): array => $this->availableColumns())
                 ->placeholder('Non importare')
                 ->native(false)
                 ->live()
@@ -269,5 +273,21 @@ class ImportaSoci extends Page
         $file = $this->data['file'] ?? null;
 
         return $file instanceof TemporaryUploadedFile ? $file : null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function availableSheets(): array
+    {
+        return $this->sheets ?: ($this->data['sheets'] ?? []);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function availableColumns(): array
+    {
+        return $this->columns ?: ($this->data['columns'] ?? []);
     }
 }

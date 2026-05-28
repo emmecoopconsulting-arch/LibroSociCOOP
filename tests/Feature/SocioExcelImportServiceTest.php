@@ -22,9 +22,9 @@ class SocioExcelImportServiceTest extends TestCase
         $service = app(SocioExcelImportService::class);
         $mapping = $service->guessedMapping($path);
 
-        $this->assertSame(0, $mapping['nome']);
-        $this->assertSame(1, $mapping['cognome']);
-        $this->assertSame(2, $mapping['codice_fiscale']);
+        $this->assertSame('0', $mapping['nome']);
+        $this->assertSame('1', $mapping['cognome']);
+        $this->assertSame('2', $mapping['codice_fiscale']);
 
         $preview = $service->preview($path, $mapping);
 
