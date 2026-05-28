@@ -162,11 +162,12 @@ class ImportaSoci extends Page
 
         try {
             $sheets = app(SocioExcelImportService::class)->sheetNames($file->getRealPath());
+            $this->data['file'] = $file;
             $this->sheets = array_combine($sheets, $sheets) ?: [];
             $this->data['sheets'] = $this->sheets;
             $this->data['sheet'] = $sheets[0] ?? null;
 
-            $this->refreshColumnsAndPreview();
+            $this->refreshColumnsAndPreview($file);
         } catch (\Throwable $exception) {
             Notification::make()
                 ->title('File non leggibile')
@@ -176,9 +177,9 @@ class ImportaSoci extends Page
         }
     }
 
-    public function refreshColumnsAndPreview(): void
+    public function refreshColumnsAndPreview(?TemporaryUploadedFile $uploadedFile = null): void
     {
-        $file = $this->uploadedFile();
+        $file = $uploadedFile ?? $this->uploadedFile();
 
         if (! $file) {
             return;
@@ -256,7 +257,18 @@ class ImportaSoci extends Page
     {
         $file = $this->data['file'] ?? null;
 
-        return $file instanceof TemporaryUploadedFile ? $file : null;
+        if ($file instanceof TemporaryUploadedFile) {
+            return $file;
+        }
+
+        if (is_array($file)) {
+            $file = collect($file)
+                ->first(fn (mixed $item): bool => $item instanceof TemporaryUploadedFile);
+
+            return $file instanceof TemporaryUploadedFile ? $file : null;
+        }
+
+        return null;
     }
 
     /**
