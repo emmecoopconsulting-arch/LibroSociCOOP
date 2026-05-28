@@ -13,7 +13,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use UnitEnum;
 
 class VerbaleResource extends Resource
 {
@@ -27,7 +26,9 @@ class VerbaleResource extends Resource
 
     protected static ?string $navigationLabel = 'Verbali';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Gestione Verbali';
+
+    protected static ?int $navigationSort = 11;
 
     public static function form(Schema $schema): Schema
     {

@@ -12,7 +12,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use UnitEnum;
 
 class SocioVariationResource extends Resource
 {
@@ -26,7 +25,9 @@ class SocioVariationResource extends Resource
 
     protected static ?string $navigationLabel = 'Variazioni soci';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Soci';
+
+    protected static ?int $navigationSort = 24;
 
     public static function form(Schema $schema): Schema
     {

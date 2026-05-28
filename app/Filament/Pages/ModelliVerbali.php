@@ -17,7 +17,6 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use UnitEnum;
 
 class ModelliVerbali extends Page
 {
@@ -27,7 +26,9 @@ class ModelliVerbali extends Page
 
     protected static ?string $title = 'Modelli verbali';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Gestione Verbali';
+
+    protected static ?int $navigationSort = 13;
 
     protected string $view = 'filament.pages.modelli-verbali';
 

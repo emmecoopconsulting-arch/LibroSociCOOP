@@ -6,7 +6,6 @@ use App\Models\Socio;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use UnitEnum;
 
 class LibroSoci extends Page
 {
@@ -16,7 +15,9 @@ class LibroSoci extends Page
 
     protected static ?string $title = 'Libro soci';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Soci';
+
+    protected static ?int $navigationSort = 21;
 
     protected string $view = 'filament.pages.libro-soci';
 

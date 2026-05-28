@@ -10,7 +10,6 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use UnitEnum;
 
 class GestioneVerbali extends Page
 {
@@ -20,7 +19,7 @@ class GestioneVerbali extends Page
 
     protected static ?string $title = 'Gestione Verbali';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?int $navigationSort = 10;
 
     protected string $view = 'filament.pages.gestione-verbali';
 

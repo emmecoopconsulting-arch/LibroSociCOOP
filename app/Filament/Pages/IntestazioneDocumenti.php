@@ -15,7 +15,6 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use UnitEnum;
 
 class IntestazioneDocumenti extends Page
 {
@@ -25,7 +24,9 @@ class IntestazioneDocumenti extends Page
 
     protected static ?string $title = 'Intestazione documenti';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Gestione Verbali';
+
+    protected static ?int $navigationSort = 12;
 
     protected string $view = 'filament.pages.intestazione-documenti';
 

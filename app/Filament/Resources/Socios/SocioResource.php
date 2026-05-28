@@ -15,7 +15,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use UnitEnum;
 
 class SocioResource extends Resource
 {
@@ -29,7 +28,9 @@ class SocioResource extends Resource
 
     protected static ?string $navigationLabel = 'Soci';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Libro soci';
+    protected static ?string $navigationParentItem = 'Soci';
+
+    protected static ?int $navigationSort = 22;
 
     public static function form(Schema $schema): Schema
     {
