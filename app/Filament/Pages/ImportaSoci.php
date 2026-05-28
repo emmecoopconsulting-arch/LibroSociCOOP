@@ -15,6 +15,7 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
@@ -86,7 +87,7 @@ class ImportaSoci extends Page
                                         ->afterStateUpdated(fn (?TemporaryUploadedFile $state) => $this->loadWorkbook($state)),
                                     Select::make('sheet')
                                         ->label('Foglio')
-                                        ->options(fn (): array => $this->availableSheets())
+                                        ->options(fn (Get $get): array => $this->availableSheets($get))
                                         ->required()
                                         ->live()
                                         ->visible(fn (): bool => $this->sheets !== [])
@@ -258,7 +259,7 @@ class ImportaSoci extends Page
         return collect(SocioExcelImportService::FIELDS)
             ->map(fn (string $label, string $field): Select => Select::make("mapping.{$field}")
                 ->label($label)
-                ->options(fn (): array => $this->availableColumns())
+                ->options(fn (Get $get): array => $this->availableColumns($get))
                 ->placeholder('Non importare')
                 ->native(false)
                 ->live()
@@ -278,16 +279,16 @@ class ImportaSoci extends Page
     /**
      * @return array<string, string>
      */
-    private function availableSheets(): array
+    private function availableSheets(?Get $get = null): array
     {
-        return $this->sheets ?: ($this->data['sheets'] ?? []);
+        return $this->sheets ?: ($get?->array('/data.sheets') ?: ($this->data['sheets'] ?? []));
     }
 
     /**
      * @return array<string, string>
      */
-    private function availableColumns(): array
+    private function availableColumns(?Get $get = null): array
     {
-        return $this->columns ?: ($this->data['columns'] ?? []);
+        return $this->columns ?: ($get?->array('/data.columns') ?: ($this->data['columns'] ?? []));
     }
 }

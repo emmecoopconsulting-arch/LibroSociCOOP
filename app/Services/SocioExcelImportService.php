@@ -77,7 +77,7 @@ class SocioExcelImportService
             $letter = Coordinate::stringFromColumnIndex($index);
             $heading = $firstRowContainsHeaders ? trim((string) $sheet->getCell([$index, 1])->getFormattedValue()) : '';
 
-            $options[(string) ($index - 1)] = filled($heading) ? "{$letter} - {$heading}" : $letter;
+            $options[$this->columnOptionKey($index - 1)] = filled($heading) ? "{$letter} - {$heading}" : $letter;
         }
 
         return $options;
@@ -109,7 +109,7 @@ class SocioExcelImportService
                 $column = array_search($this->normalizeHeader($guess), $headers, true);
 
                 if ($column !== false) {
-                    $mapping[$field] = (string) $column;
+                    $mapping[$field] = $this->columnOptionKey($column);
                     break;
                 }
             }
@@ -224,7 +224,7 @@ class SocioExcelImportService
                     continue;
                 }
 
-                $cell = $sheet->getCell([(int) $columnIndex + 1, $rowNumber]);
+                $cell = $sheet->getCell([$this->columnIndex($columnIndex) + 1, $rowNumber]);
                 $data[$field] = $this->cellValue($cell->getValue(), $cell->getFormattedValue(), $field);
             }
 
@@ -334,6 +334,20 @@ class SocioExcelImportService
         }
 
         return trim($formattedValue);
+    }
+
+    private function columnOptionKey(int $index): string
+    {
+        return "column_{$index}";
+    }
+
+    private function columnIndex(int|string $value): int
+    {
+        if (is_string($value) && str_starts_with($value, 'column_')) {
+            return (int) str($value)->after('column_')->toString();
+        }
+
+        return (int) $value;
     }
 
     /**
