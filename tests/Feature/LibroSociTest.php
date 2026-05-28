@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\IntestazioneDocumenti;
+use App\Filament\Pages\ModelliVerbali;
 use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Models\Comune;
 use App\Models\DocumentHeaderSetting;
@@ -10,8 +11,10 @@ use App\Models\Socio;
 use App\Models\SocioWorkContract;
 use App\Models\User;
 use App\Models\Verbale;
+use App\Models\VerbaleTemplate;
 use App\Services\SocioVariationService;
 use App\Services\VerbalePdfService;
+use App\Services\VerbaleTemplateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -90,6 +93,10 @@ class LibroSociTest extends TestCase
             ->assertOk();
 
         $this->actingAs($admin)
+            ->get('/admin/modelli-verbali')
+            ->assertOk();
+
+        $this->actingAs($admin)
             ->get('/admin/socio-variations')
             ->assertOk();
     }
@@ -109,6 +116,70 @@ class LibroSociTest extends TestCase
         $this->assertDatabaseHas(DocumentHeaderSetting::class, [
             'text' => "FTM Cooperativa Sociale\nUnità locale: Novi Ligure",
         ]);
+    }
+
+    public function test_verbale_template_can_be_saved_and_rendered_with_dynamic_fields(): void
+    {
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $content = [
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Verbale per '],
+                        ['type' => 'mergeTag', 'attrs' => ['id' => 'socio.nome_completo']],
+                    ],
+                ],
+            ],
+        ];
+
+        Livewire::actingAs($admin)
+            ->test(ModelliVerbali::class)
+            ->set('data.tipo', 'ammissione')
+            ->set('data.contenuto', $content)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas(VerbaleTemplate::class, [
+            'tipo' => 'ammissione',
+        ]);
+
+        Comune::create([
+            'denominazione' => 'Roma',
+            'regione' => 'Lazio',
+            'provincia_unita_territoriale' => 'Roma',
+            'codice_catastale' => 'H501',
+        ]);
+
+        $socio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        $verbale = Verbale::create([
+            'socio_id' => $socio->id,
+            'tipo' => 'ammissione',
+            'stato' => 'da_generare',
+            'titolo' => 'Verbale test',
+            'data_verbale' => '2026-05-25',
+        ]);
+
+        $html = app(VerbaleTemplateService::class)->render(
+            $verbale,
+            app(VerbalePdfService::class)->riepilogoSociale($verbale, $socio),
+        );
+
+        $this->assertStringContainsString('Verbale per', $html);
+        $this->assertStringContainsString('Mario Rossi', $html);
     }
 
     public function test_ordinary_member_created_from_filament_form_saves_work_contract(): void

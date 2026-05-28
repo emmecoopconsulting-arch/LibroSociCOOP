@@ -12,7 +12,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VerbalePdfService
 {
-    public function __construct(private readonly PdfPageNumberService $pageNumberService) {}
+    public function __construct(
+        private readonly PdfPageNumberService $pageNumberService,
+        private readonly VerbaleTemplateService $templateService,
+    ) {}
 
     public function ensureAdmissionVerbale(Socio $socio): Verbale
     {
@@ -34,9 +37,9 @@ class VerbalePdfService
             'data_verbale' => $socio->data_ammissione,
         ])->save();
 
-        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.ammissione', [
+        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.template', [
+            'content' => $this->templateService->render($verbale, $this->riepilogoSociale($verbale, $socio)),
             'documentHeader' => DocumentHeaderSetting::current(),
-            'riepilogoSociale' => $this->riepilogoSociale($verbale, $socio),
             'socio' => $socio,
             'verbale' => $verbale,
         ]));
@@ -78,7 +81,8 @@ class VerbalePdfService
     {
         $verbale->loadMissing(['socio', 'variation']);
 
-        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.variazione', [
+        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.template', [
+            'content' => $this->templateService->render($verbale),
             'documentHeader' => DocumentHeaderSetting::current(),
             'socio' => $verbale->socio,
             'variation' => $verbale->variation,
