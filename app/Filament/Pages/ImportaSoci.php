@@ -19,6 +19,8 @@ use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ImportaSoci extends Page
@@ -39,6 +41,7 @@ class ImportaSoci extends Page
         'first_row_contains_headers' => true,
         'update_existing' => false,
         'columns' => [],
+        'file_path' => null,
         'mapping' => [],
         'sheets' => [],
     ];
@@ -105,7 +108,8 @@ class ImportaSoci extends Page
                                     View::make('filament.pages.partials.importa-soci-mapping')
                                         ->viewData(fn ($livewire): array => [
                                             'livewire' => $livewire,
-                                        ]),
+                                        ])
+                                        ->columnSpanFull(),
                                     Toggle::make('update_existing')
                                         ->label('Aggiorna soci esistenti con lo stesso codice fiscale')
                                         ->helperText('Se disattivato, le righe già presenti vengono saltate.')
@@ -160,13 +164,14 @@ class ImportaSoci extends Page
         }
 
         try {
-            $sheets = app(SocioExcelImportService::class)->sheetNames($file->getRealPath());
+            $path = $this->persistUploadedWorkbook($file);
+            $sheets = app(SocioExcelImportService::class)->sheetNames($path);
             $this->data['file'] = $file;
             $this->sheets = array_combine($sheets, $sheets) ?: [];
             $this->data['sheets'] = $this->sheets;
             $this->data['sheet'] = $sheets[0] ?? null;
 
-            $this->refreshColumnsAndPreview($file);
+            $this->refreshColumnsAndPreview(path: $path);
         } catch (\Throwable $exception) {
             Notification::make()
                 ->title('File non leggibile')
@@ -176,11 +181,11 @@ class ImportaSoci extends Page
         }
     }
 
-    public function refreshColumnsAndPreview(?TemporaryUploadedFile $uploadedFile = null): void
+    public function refreshColumnsAndPreview(?TemporaryUploadedFile $uploadedFile = null, ?string $path = null): void
     {
-        $file = $uploadedFile ?? $this->uploadedFile();
+        $path ??= $this->workbookPath($uploadedFile);
 
-        if (! $file) {
+        if (! $path) {
             return;
         }
 
@@ -188,11 +193,11 @@ class ImportaSoci extends Page
         $sheet = $this->data['sheet'] ?? null;
         $hasHeaders = (bool) ($this->data['first_row_contains_headers'] ?? true);
 
-        $this->columns = $service->columnOptions($file->getRealPath(), $sheet, $hasHeaders);
+        $this->columns = $service->columnOptions($path, $sheet, $hasHeaders);
         $this->data['columns'] = $this->columns;
 
         if ($hasHeaders) {
-            $this->data['mapping'] = $service->guessedMapping($file->getRealPath(), $sheet);
+            $this->data['mapping'] = $service->guessedMapping($path, $sheet);
         } else {
             $this->data['mapping'] = array_fill_keys(array_keys(SocioExcelImportService::FIELDS), null);
         }
@@ -203,16 +208,16 @@ class ImportaSoci extends Page
 
     public function refreshPreview(): void
     {
-        $file = $this->uploadedFile();
+        $path = $this->workbookPath();
 
-        if (! $file) {
+        if (! $path) {
             $this->preview = null;
 
             return;
         }
 
         $this->preview = app(SocioExcelImportService::class)->preview(
-            path: $file->getRealPath(),
+            path: $path,
             mapping: $this->data['mapping'] ?? [],
             sheetName: $this->data['sheet'] ?? null,
             firstRowContainsHeaders: (bool) ($this->data['first_row_contains_headers'] ?? true),
@@ -224,9 +229,9 @@ class ImportaSoci extends Page
     {
         $this->form->validate();
 
-        $file = $this->uploadedFile();
+        $path = $this->workbookPath();
 
-        if (! $file) {
+        if (! $path) {
             Notification::make()
                 ->title('Carica un file Excel prima di importare')
                 ->danger()
@@ -236,7 +241,7 @@ class ImportaSoci extends Page
         }
 
         $result = app(SocioExcelImportService::class)->import(
-            path: $file->getRealPath(),
+            path: $path,
             mapping: $this->data['mapping'] ?? [],
             sheetName: $this->data['sheet'] ?? null,
             firstRowContainsHeaders: (bool) ($this->data['first_row_contains_headers'] ?? true),
@@ -250,6 +255,39 @@ class ImportaSoci extends Page
             ->body("Creati: {$result['created']}. Aggiornati: {$result['updated']}. Saltati: {$result['skipped']}.")
             ->success()
             ->send();
+    }
+
+    private function persistUploadedWorkbook(TemporaryUploadedFile $file): string
+    {
+        if (filled($previousPath = $this->data['file_path'] ?? null)) {
+            Storage::disk('local')->delete((string) $previousPath);
+        }
+
+        $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'xlsx';
+        $storedPath = $file->storeAs('socio-imports', Str::uuid().".{$extension}", 'local');
+
+        if (! $storedPath) {
+            throw new \RuntimeException('Impossibile salvare temporaneamente il file caricato.');
+        }
+
+        $this->data['file_path'] = $storedPath;
+
+        return Storage::disk('local')->path($storedPath);
+    }
+
+    private function workbookPath(?TemporaryUploadedFile $uploadedFile = null): ?string
+    {
+        if ($uploadedFile) {
+            return $uploadedFile->getRealPath();
+        }
+
+        $storedPath = $this->data['file_path'] ?? null;
+
+        if (filled($storedPath) && Storage::disk('local')->exists((string) $storedPath)) {
+            return Storage::disk('local')->path((string) $storedPath);
+        }
+
+        return $this->uploadedFile()?->getRealPath();
     }
 
     private function uploadedFile(): ?TemporaryUploadedFile
