@@ -2,7 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AppSetting;
 use App\Models\Socio;
+use App\Models\SocioMedicalVisit;
+use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -15,6 +18,19 @@ class SociOverview extends StatsOverviewWidget
     protected function getStats(): array
     {
         $capitaleSociale = (float) Socio::sum('capitale_versato');
+        $today = CarbonImmutable::today();
+        $permessoAlertDays = AppSetting::int(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS);
+        $visitaAlertDays = AppSetting::int(AppSetting::VISITA_MEDICA_ALERT_DAYS);
+        $permessiScaduti = Socio::query()
+            ->where('ha_permesso_soggiorno', true)
+            ->whereDate('scadenza_permesso_soggiorno', '<', $today)
+            ->count();
+        $visiteScadute = SocioMedicalVisit::query()
+            ->whereIn('id', SocioMedicalVisit::query()
+                ->selectRaw('MAX(id)')
+                ->groupBy('socio_id'))
+            ->whereDate('scadenza', '<', $today)
+            ->count();
 
         return [
             Stat::make('Soci totali', Socio::count())
@@ -32,6 +48,22 @@ class SociOverview extends StatsOverviewWidget
             Stat::make('Capitale sociale', $this->formatEuro($capitaleSociale))
                 ->description('Somma dei versamenti')
                 ->icon('heroicon-o-banknotes')
+                ->color('warning'),
+            Stat::make('Permessi in scadenza', Socio::query()
+                ->where('ha_permesso_soggiorno', true)
+                ->whereDate('scadenza_permesso_soggiorno', '<=', $today->addDays($permessoAlertDays))
+                ->count())
+                ->description("{$permessiScaduti} scaduti / entro {$permessoAlertDays} giorni")
+                ->icon('heroicon-o-exclamation-triangle')
+                ->color('danger'),
+            Stat::make('Visite mediche in scadenza', SocioMedicalVisit::query()
+                ->whereIn('id', SocioMedicalVisit::query()
+                    ->selectRaw('MAX(id)')
+                    ->groupBy('socio_id'))
+                ->whereDate('scadenza', '<=', $today->addDays($visitaAlertDays))
+                ->count())
+                ->description("{$visiteScadute} scadute / entro {$visitaAlertDays} giorni")
+                ->icon('heroicon-o-heart')
                 ->color('warning'),
         ];
     }

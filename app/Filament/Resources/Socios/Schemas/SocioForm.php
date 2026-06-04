@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Socios\Schemas;
 
+use App\Models\AppSetting;
 use App\Models\Socio;
 use App\Models\SocioWorkContract;
 use App\Rules\CodiceFiscale;
@@ -10,6 +11,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rule;
@@ -85,6 +87,13 @@ class SocioForm
                             ->helperText('Caricare il verbale del CDA in PDF prima della generazione del verbale di ammissione.'),
                         DatePicker::make('data_uscita')
                             ->label('Data uscita'),
+                        Toggle::make('ha_permesso_soggiorno')
+                            ->label('Permesso di soggiorno')
+                            ->live(),
+                        DatePicker::make('scadenza_permesso_soggiorno')
+                            ->label('Scadenza permesso di soggiorno')
+                            ->visible(fn ($get): bool => (bool) $get('ha_permesso_soggiorno'))
+                            ->required(fn ($get): bool => (bool) $get('ha_permesso_soggiorno')),
                         TextInput::make('quota_sociale')
                             ->label('Quota sociale')
                             ->numeric()
@@ -118,6 +127,11 @@ class SocioForm
                             ->step('0.25')
                             ->minValue(0)
                             ->maxValue(60),
+                        Select::make('mansione')
+                            ->label('Mansione')
+                            ->options(fn (): array => array_combine(AppSetting::mansioni(), AppSetting::mansioni()))
+                            ->searchable()
+                            ->preload(),
                         Textarea::make('contract_note')
                             ->label('Note contratto')
                             ->columnSpanFull(),

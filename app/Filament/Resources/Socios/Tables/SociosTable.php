@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Socios\Tables;
 
+use App\Models\AppSetting;
 use App\Models\Socio;
 use App\Services\LibroSociExportService;
 use Filament\Actions\Action;
@@ -36,6 +37,10 @@ class SociosTable
                     ->formatStateUsing(fn (?string $state): string => Socio::TIPOLOGIE[$state] ?? (string) $state)
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('mansione')
+                    ->label('Mansione')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('stato')
                     ->label('Stato')
                     ->formatStateUsing(fn (?string $state): string => Socio::STATI[$state] ?? (string) $state)
@@ -44,6 +49,11 @@ class SociosTable
                     ->label('Ammesso il')
                     ->date('d/m/Y')
                     ->sortable(),
+                TextColumn::make('scadenza_permesso_soggiorno')
+                    ->label('Scad. permesso')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('capitale_versato')
                     ->label('Capitale')
                     ->money('EUR')
@@ -56,6 +66,9 @@ class SociosTable
                 SelectFilter::make('stato')
                     ->label('Stato')
                     ->options(Socio::STATI),
+                SelectFilter::make('mansione')
+                    ->label('Mansione')
+                    ->options(fn (): array => array_combine(AppSetting::mansioni(), AppSetting::mansioni())),
                 TrashedFilter::make(),
             ])
             ->headerActions([

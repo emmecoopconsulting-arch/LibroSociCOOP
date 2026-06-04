@@ -30,6 +30,9 @@ use Spatie\Activitylog\Support\LogOptions;
     'verbale_cda_path',
     'stato',
     'data_uscita',
+    'ha_permesso_soggiorno',
+    'scadenza_permesso_soggiorno',
+    'mansione',
     'quota_sociale',
     'capitale_versato',
     'note',
@@ -57,6 +60,8 @@ class Socio extends Model
             'data_nascita' => 'date',
             'data_ammissione' => 'date',
             'data_uscita' => 'date',
+            'ha_permesso_soggiorno' => 'boolean',
+            'scadenza_permesso_soggiorno' => 'date',
             'quota_sociale' => 'decimal:2',
             'capitale_versato' => 'decimal:2',
         ];
@@ -66,6 +71,7 @@ class Socio extends Model
     {
         static::creating(function (Socio $socio): void {
             $socio->codice_fiscale = strtoupper((string) $socio->codice_fiscale);
+            $socio->normalizeDerivedFields();
 
             if (blank($socio->codice_socio)) {
                 $nextId = ((int) static::withTrashed()->max('id')) + 1;
@@ -77,6 +83,7 @@ class Socio extends Model
 
         static::updating(function (Socio $socio): void {
             $socio->codice_fiscale = strtoupper((string) $socio->codice_fiscale);
+            $socio->normalizeDerivedFields();
             app(CodiceFiscaleParser::class)->applyToSocio($socio);
         });
 
@@ -116,6 +123,11 @@ class Socio extends Model
         return $this->hasMany(SocioWorkContract::class);
     }
 
+    public function medicalVisits(): HasMany
+    {
+        return $this->hasMany(SocioMedicalVisit::class);
+    }
+
     public function variations(): HasMany
     {
         return $this->hasMany(SocioVariation::class);
@@ -134,6 +146,17 @@ class Socio extends Model
     public function getNomeCompletoAttribute(): string
     {
         return trim("{$this->nome} {$this->cognome}");
+    }
+
+    private function normalizeDerivedFields(): void
+    {
+        if (! $this->ha_permesso_soggiorno) {
+            $this->scadenza_permesso_soggiorno = null;
+        }
+
+        if ($this->tipologia !== 'ordinario') {
+            $this->mansione = null;
+        }
     }
 
     public function getActivitylogOptions(): LogOptions
