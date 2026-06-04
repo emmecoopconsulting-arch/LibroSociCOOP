@@ -81,7 +81,6 @@ class ImportaSoci extends Page
                                             'application/vnd.oasis.opendocument.spreadsheet',
                                         ])
                                         ->storeFiles(false)
-                                        ->required()
                                         ->live()
                                         ->afterStateUpdated(fn (?TemporaryUploadedFile $state) => $this->loadWorkbook($state)),
                                     Select::make('sheet')
