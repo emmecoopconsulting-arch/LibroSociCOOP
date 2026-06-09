@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Filament\Pages\IntestazioneDocumenti;
 use App\Filament\Pages\ModelliVerbali;
 use App\Filament\Resources\Socios\Pages\CreateSocio;
+use App\Filament\Resources\Socios\Pages\ListSocios;
 use App\Models\Comune;
 use App\Models\DocumentHeaderSetting;
 use App\Models\Socio;
+use App\Models\SocioChange;
 use App\Models\SocioWorkContract;
 use App\Models\User;
 use App\Models\Verbale;
@@ -222,6 +224,62 @@ class LibroSociTest extends TestCase
             'data_fine' => '2026-12-31 00:00:00',
             'ore_settimanali' => 30,
             'stato' => 'attivo',
+        ]);
+    }
+
+    public function test_selected_members_can_be_bulk_updated_from_filament_table(): void
+    {
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $firstSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'quota_sociale' => 25,
+            'capitale_versato' => 100,
+        ]);
+
+        $secondSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Luigi',
+            'cognome' => 'Verdi',
+            'codice_fiscale' => 'VRDLGI80A01H501O',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'quota_sociale' => 50,
+            'capitale_versato' => 100,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListSocios::class)
+            ->assertTableBulkActionExists('bulkEdit')
+            ->callTableBulkAction('bulkEdit', [$firstSocio, $secondSocio], [
+                'quota_sociale' => 150,
+            ])
+            ->assertHasNoTableBulkActionErrors();
+
+        $this->assertSame('150.00', $firstSocio->refresh()->quota_sociale);
+        $this->assertSame('150.00', $secondSocio->refresh()->quota_sociale);
+
+        $this->assertDatabaseHas(SocioChange::class, [
+            'socio_id' => $firstSocio->id,
+            'field' => 'quota_sociale',
+            'old_value' => '25.00',
+            'new_value' => '150',
+            'user_id' => $admin->id,
+        ]);
+
+        $this->assertDatabaseHas(SocioChange::class, [
+            'socio_id' => $secondSocio->id,
+            'field' => 'quota_sociale',
+            'old_value' => '50.00',
+            'new_value' => '150',
+            'user_id' => $admin->id,
         ]);
     }
 

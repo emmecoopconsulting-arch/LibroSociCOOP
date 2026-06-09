@@ -6,15 +6,18 @@ use App\Models\AppSetting;
 use App\Models\Socio;
 use App\Services\LibroSociExportService;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class SociosTable
 {
@@ -86,6 +89,27 @@ class SociosTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('bulkEdit')
+                        ->label('Modifica in blocco')
+                        ->icon('heroicon-o-pencil-square')
+                        ->modalHeading('Modifica soci selezionati')
+                        ->modalSubmitActionLabel('Applica modifiche')
+                        ->schema([
+                            TextInput::make('quota_sociale')
+                                ->label('Quota sociale')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0)
+                                ->prefix('EUR'),
+                        ])
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each(fn (Socio $socio): bool => $socio->update([
+                                'quota_sociale' => $data['quota_sociale'],
+                            ]));
+                        })
+                        ->successNotificationTitle('Soci aggiornati')
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
