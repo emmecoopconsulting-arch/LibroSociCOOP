@@ -18,6 +18,7 @@ class VerbalesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('generato_il', 'desc')
             ->columns([
                 TextColumn::make('titolo')
                     ->label('Titolo')

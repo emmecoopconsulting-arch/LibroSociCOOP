@@ -54,6 +54,11 @@ class SociosTable
                     ->label('Stato')
                     ->formatStateUsing(fn (?string $state): string => Socio::STATI[$state] ?? (string) $state)
                     ->badge(),
+                TextColumn::make('is_cda_member')
+                    ->label('CDA')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Si' : 'No')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('data_ammissione')
                     ->label('Ammesso il')
                     ->date('d/m/Y')

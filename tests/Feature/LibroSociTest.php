@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\IntestazioneDocumenti;
+use App\Filament\Pages\Assemblea as AssembleaPage;
 use App\Filament\Pages\ModelliVerbali;
 use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Filament\Resources\Socios\Pages\ListSocios;
+use App\Filament\Resources\Verbales\Pages\ListVerbales;
+use App\Models\Assemblea;
 use App\Models\Comune;
 use App\Models\DocumentHeaderSetting;
 use App\Models\Socio;
@@ -14,6 +17,7 @@ use App\Models\SocioWorkContract;
 use App\Models\User;
 use App\Models\Verbale;
 use App\Models\VerbaleTemplate;
+use App\Services\AssembleaService;
 use App\Services\SocioVariationService;
 use App\Services\VerbalePdfService;
 use App\Services\VerbaleTemplateService;
@@ -89,6 +93,10 @@ class LibroSociTest extends TestCase
 
         $this->actingAs($admin)
             ->get('/admin/gestione-verbali')
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->get('/admin/assemblea')
             ->assertOk();
 
         $this->actingAs($admin)
@@ -296,6 +304,184 @@ class LibroSociTest extends TestCase
             'new_value' => '250',
             'user_id' => $admin->id,
         ]);
+    }
+
+    public function test_assemblea_groups_variations_and_generates_summary_and_individual_verbales(): void
+    {
+        Storage::fake('local');
+
+        $firstSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+            'is_cda_member' => true,
+        ]);
+
+        SocioWorkContract::create([
+            'socio_id' => $firstSocio->id,
+            'tipo_contratto' => 'determinato',
+            'data_inizio' => '2026-06-01',
+            'data_fine' => '2026-12-31',
+            'ore_settimanali' => 30,
+            'stato' => 'attivo',
+        ]);
+
+        $secondSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Luigi',
+            'cognome' => 'Verdi',
+            'codice_fiscale' => 'VRDLGI80A01H501O',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        SocioWorkContract::create([
+            'socio_id' => $secondSocio->id,
+            'tipo_contratto' => 'indeterminato',
+            'data_inizio' => '2026-06-01',
+            'ore_settimanali' => 30,
+            'stato' => 'attivo',
+        ]);
+
+        $assemblea = app(AssembleaService::class)->createWithVariations([
+            'data_assemblea' => '2026-06-09',
+            'titolo' => 'Assemblea del 09/06/2026',
+            'variations' => [
+                [
+                    'socio_id' => $firstSocio->id,
+                    'tipo' => 'proroga_contratto',
+                    'data_effetto' => '2026-07-01',
+                    'data_fine' => '2027-03-31',
+                ],
+                [
+                    'socio_id' => $secondSocio->id,
+                    'tipo' => 'cessazione_rapporto',
+                    'data_effetto' => '2026-08-31',
+                ],
+            ],
+        ]);
+
+        $assemblea->refresh()->load('variations.verbale');
+
+        $this->assertInstanceOf(Assemblea::class, $assemblea);
+        $this->assertSame('2026-06-09', $assemblea->data_assemblea->format('Y-m-d'));
+        $this->assertCount(2, $assemblea->variations);
+        Storage::disk('local')->assertExists($assemblea->file_path);
+
+        $firstVariation = $assemblea->variations->firstWhere('socio_id', $firstSocio->id);
+        $secondVariation = $assemblea->variations->firstWhere('socio_id', $secondSocio->id);
+
+        $this->assertSame('2026-06-09', $firstVariation->data_verbale->format('Y-m-d'));
+        $this->assertSame('2026-07-01', $firstVariation->data_effetto->format('Y-m-d'));
+        $this->assertSame('2026-06-09', $firstVariation->verbale->data_verbale->format('Y-m-d'));
+        $this->assertSame('generato', $firstVariation->verbale->stato);
+        Storage::disk('local')->assertExists($firstVariation->verbale->file_path);
+
+        $this->assertSame('2026-08-31', $secondVariation->data_effetto->format('Y-m-d'));
+        $this->assertSame('generato', $secondVariation->verbale->stato);
+        $this->assertSame('recesso', $secondSocio->refresh()->stato);
+        $this->assertSame('2026-08-31', $secondSocio->data_uscita->format('Y-m-d'));
+    }
+
+    public function test_assemblea_page_button_creates_assemblea(): void
+    {
+        Storage::fake('local');
+
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $socio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        SocioWorkContract::create([
+            'socio_id' => $socio->id,
+            'tipo_contratto' => 'determinato',
+            'data_inizio' => '2026-06-01',
+            'data_fine' => '2026-12-31',
+            'ore_settimanali' => 30,
+            'stato' => 'attivo',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(AssembleaPage::class)
+            ->set('data.data_assemblea', '2026-06-09')
+            ->set('data.titolo', 'Assemblea test')
+            ->set('data.variations', [
+                [
+                    'socio_id' => $socio->id,
+                    'tipo' => 'proroga_contratto',
+                    'data_effetto' => '2026-07-01',
+                    'data_fine' => '2027-03-31',
+                ],
+            ])
+            ->call('createAssemblea')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas(Assemblea::class, [
+            'titolo' => 'Assemblea test',
+        ]);
+    }
+
+    public function test_verbales_list_is_sorted_by_generation_date_by_default(): void
+    {
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $firstSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        $secondSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Luigi',
+            'cognome' => 'Verdi',
+            'codice_fiscale' => 'VRDLGI80A01H501O',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        $olderVerbale = Verbale::create([
+            'socio_id' => $firstSocio->id,
+            'tipo' => 'recesso',
+            'stato' => 'generato',
+            'titolo' => 'Verbale meno recente',
+            'data_verbale' => '2026-06-01',
+            'generato_il' => '2026-06-01 10:00:00',
+        ]);
+
+        $newerVerbale = Verbale::create([
+            'socio_id' => $secondSocio->id,
+            'tipo' => 'sospensione',
+            'stato' => 'generato',
+            'titolo' => 'Verbale piu recente',
+            'data_verbale' => '2026-06-02',
+            'generato_il' => '2026-06-02 10:00:00',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListVerbales::class)
+            ->assertCanSeeTableRecords([$newerVerbale, $olderVerbale], inOrder: true);
     }
 
     public function test_codice_fiscale_data_is_applied_and_admission_pdf_is_saved(): void

@@ -72,6 +72,9 @@ class SocioForm
                             ->required()
                             ->default('attivo')
                             ->live(),
+                        Toggle::make('is_cda_member')
+                            ->label('Membro CDA')
+                            ->default(false),
                         DatePicker::make('data_ammissione')
                             ->label('Data ammissione')
                             ->required(fn ($get): bool => $get('stato') === 'attivo'),

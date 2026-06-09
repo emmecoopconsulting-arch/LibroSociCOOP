@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Auth\InitialAdminSetupController;
+use App\Models\Assemblea;
+use App\Services\AssembleaService;
 use App\Services\InitialAdminSetupService;
 use App\Services\LibroSociExportService;
 use Illuminate\Support\Facades\Route;
@@ -22,4 +24,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/exports/libro-soci.xlsx', fn (LibroSociExportService $service) => $service->excelResponse())
         ->name('exports.libro-soci.excel');
+
+    Route::get('/assemblee/{assemblea}/download', fn (Assemblea $assemblea, AssembleaService $service) => $service->downloadResponse($assemblea))
+        ->name('assemblee.download');
 });

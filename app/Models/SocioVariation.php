@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'socio_id',
     'verbale_id',
+    'assemblea_id',
     'tipo',
     'stato',
     'data_verbale',
@@ -60,5 +61,10 @@ class SocioVariation extends Model
     public function verbale(): BelongsTo
     {
         return $this->belongsTo(Verbale::class);
+    }
+
+    public function assemblea(): BelongsTo
+    {
+        return $this->belongsTo(Assemblea::class);
     }
 }
