@@ -259,12 +259,19 @@ class LibroSociTest extends TestCase
             ->test(ListSocios::class)
             ->assertTableBulkActionExists('bulkEdit')
             ->callTableBulkAction('bulkEdit', [$firstSocio, $secondSocio], [
+                'fields_to_update' => ['quota_sociale', 'capitale_versato'],
                 'quota_sociale' => 150,
+                'capitale_versato' => 250,
+                'stato' => 'sospeso',
             ])
             ->assertHasNoTableBulkActionErrors();
 
         $this->assertSame('150.00', $firstSocio->refresh()->quota_sociale);
         $this->assertSame('150.00', $secondSocio->refresh()->quota_sociale);
+        $this->assertSame('250.00', $firstSocio->capitale_versato);
+        $this->assertSame('250.00', $secondSocio->capitale_versato);
+        $this->assertSame('attivo', $firstSocio->stato);
+        $this->assertSame('attivo', $secondSocio->stato);
 
         $this->assertDatabaseHas(SocioChange::class, [
             'socio_id' => $firstSocio->id,
@@ -279,6 +286,14 @@ class LibroSociTest extends TestCase
             'field' => 'quota_sociale',
             'old_value' => '50.00',
             'new_value' => '150',
+            'user_id' => $admin->id,
+        ]);
+
+        $this->assertDatabaseHas(SocioChange::class, [
+            'socio_id' => $firstSocio->id,
+            'field' => 'capitale_versato',
+            'old_value' => '100.00',
+            'new_value' => '250',
             'user_id' => $admin->id,
         ]);
     }
