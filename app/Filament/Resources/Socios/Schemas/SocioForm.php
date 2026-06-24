@@ -86,8 +86,7 @@ class SocioForm
                             ->maxSize(10240)
                             ->downloadable()
                             ->openable()
-                            ->required(fn (?Socio $record): bool => ! $record)
-                            ->helperText('Caricare il verbale del CDA in PDF prima della generazione del verbale di ammissione.'),
+                            ->helperText('Caricare il verbale del CDA in PDF, se disponibile.'),
                         DatePicker::make('data_uscita')
                             ->label('Data uscita'),
                         Toggle::make('ha_permesso_soggiorno')

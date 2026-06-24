@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Pages\IntestazioneDocumenti;
 use App\Filament\Pages\Assemblea as AssembleaPage;
+use App\Filament\Pages\IntestazioneDocumenti;
 use App\Filament\Pages\ModelliVerbali;
 use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Filament\Resources\Socios\Pages\ListSocios;
@@ -233,6 +233,33 @@ class LibroSociTest extends TestCase
             'ore_settimanali' => 30,
             'stato' => 'attivo',
         ]);
+    }
+
+    public function test_member_can_be_created_without_cda_minutes_upload(): void
+    {
+        Storage::fake('local');
+
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        Livewire::actingAs($admin)
+            ->test(CreateSocio::class)
+            ->set('data.nome', 'Luigi')
+            ->set('data.cognome', 'Bianchi')
+            ->set('data.codice_fiscale', 'RSSMRA80A01H501U')
+            ->set('data.tipologia', 'ordinario')
+            ->set('data.stato', 'attivo')
+            ->set('data.data_ammissione', '2026-05-25')
+            ->set('data.capitale_versato', 100)
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $socio = Socio::query()
+            ->where('codice_fiscale', 'RSSMRA80A01H501U')
+            ->firstOrFail();
+
+        $this->assertNull($socio->verbale_cda_path);
     }
 
     public function test_selected_members_can_be_bulk_updated_from_filament_table(): void
