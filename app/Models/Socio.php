@@ -30,6 +30,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'verbale_cda_path',
     'stato',
     'is_cda_member',
+    'carica_sociale',
     'data_uscita',
     'ha_permesso_soggiorno',
     'scadenza_permesso_soggiorno',
@@ -56,6 +57,11 @@ class Socio extends Model
         'recesso' => 'Recesso',
         'escluso' => 'Escluso',
         'sospeso' => 'Sospeso',
+    ];
+
+    public const CARICHE_SOCIALI = [
+        'presidente' => 'Presidente',
+        'consigliere' => 'Consigliere',
     ];
 
     protected function casts(): array
@@ -179,6 +185,10 @@ class Socio extends Model
             $this->is_cda_member = true;
             $this->quota_sociale = 0;
             $this->capitale_versato = 0;
+        }
+
+        if ($this->carica_sociale) {
+            $this->is_cda_member = true;
         }
 
         if (! $this->ha_permesso_soggiorno) {

@@ -12,7 +12,6 @@ use App\Services\AssembleaService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -86,6 +85,7 @@ class Assemblea extends Page
                             ->maxLength(255),
                         TextInput::make('presidente')
                             ->label('Presidente')
+                            ->helperText('Compilato dal socio con carica Presidente, se presente in anagrafica.')
                             ->maxLength(255),
                         TextInput::make('segretario')
                             ->label('Segretario')
@@ -95,28 +95,27 @@ class Assemblea extends Page
                             ->columnSpanFull(),
                     ]),
                 Section::make('Appello soci')
-                    ->description('I soci effettivi attivi sono precaricati all\'avvio dell\'assemblea.')
                     ->schema([
-                        Repeater::make('presenze')
-                            ->label('Presenze')
-                            ->hiddenLabel()
-                            ->addable(false)
-                            ->deletable(false)
-                            ->reorderable(false)
-                            ->columns(4)
+                        Select::make('present_socio_ids')
+                            ->label('Presenti')
+                            ->options(fn (): array => $this->socioOptions(activeOnly: true))
+                            ->multiple()
+                            ->searchable()
+                            ->preload(),
+                        Repeater::make('deleghe')
+                            ->label('Deleghe')
+                            ->addActionLabel('Aggiungi delega')
+                            ->columns(2)
                             ->schema([
-                                Hidden::make('socio_id'),
-                                TextInput::make('socio_label')
-                                    ->label('Socio')
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->columnSpan(2),
-                                Select::make('stato')
-                                    ->label('Stato')
-                                    ->options(AssembleaPresenza::STATI)
+                                Select::make('socio_id')
+                                    ->label('Socio delegante')
+                                    ->options(fn (): array => $this->socioOptions(activeOnly: true))
+                                    ->searchable()
+                                    ->preload()
                                     ->required(),
-                                TextInput::make('note')
-                                    ->label('Note'),
+                                TextInput::make('delegato_nome')
+                                    ->label('Delegato')
+                                    ->maxLength(255),
                             ]),
                     ]),
                 Section::make('Ordine del giorno')
@@ -388,13 +387,22 @@ class Assemblea extends Page
 
     public function presenzaStats(): array
     {
-        $presenze = collect($this->data['presenze'] ?? []);
+        $presenti = collect($this->data['present_socio_ids'] ?? [])->filter()->unique()->count();
+        $deleghe = collect($this->data['deleghe'] ?? [])
+            ->filter(fn (array $delega): bool => filled($delega['socio_id'] ?? null))
+            ->pluck('socio_id')
+            ->unique()
+            ->count();
+        $totale = Socio::query()
+            ->sociEffettivi()
+            ->attivi()
+            ->count();
 
         return [
-            'presenti' => $presenze->where('stato', 'presente')->count(),
-            'deleghe' => $presenze->where('stato', 'delega')->count(),
-            'assenti' => $presenze->where('stato', 'assente')->count(),
-            'totale' => $presenze->count(),
+            'presenti' => $presenti,
+            'deleghe' => $deleghe,
+            'assenti' => max(0, $totale - $presenti - $deleghe),
+            'totale' => $totale,
         ];
     }
 
@@ -416,10 +424,11 @@ class Assemblea extends Page
             'titolo' => "Assemblea del {$today}",
             'modalita' => 'presenza',
             'luogo' => null,
-            'presidente' => null,
+            'presidente' => $this->presidenteLabel(),
             'segretario' => null,
             'note' => null,
-            'presenze' => app(AssembleaService::class)->defaultPresenze(),
+            'present_socio_ids' => [],
+            'deleghe' => [],
             'punti_odg' => [
                 [
                     'titolo' => 'Variazioni soci',
@@ -442,13 +451,17 @@ class Assemblea extends Page
             'presidente' => $assemblea->presidente,
             'segretario' => $assemblea->segretario,
             'note' => $assemblea->note,
-            'presenze' => $assemblea->presenze
+            'present_socio_ids' => $assemblea->presenze
+                ->where('stato', 'presente')
+                ->pluck('socio_id')
+                ->values()
+                ->all(),
+            'deleghe' => $assemblea->presenze
+                ->where('stato', 'delega')
                 ->sortBy(fn (AssembleaPresenza $presenza): string => $presenza->socio?->cognome . $presenza->socio?->nome)
                 ->map(fn (AssembleaPresenza $presenza): array => [
                     'socio_id' => $presenza->socio_id,
-                    'socio_label' => "{$presenza->socio?->codice_socio} - {$presenza->socio?->cognome} {$presenza->socio?->nome}",
-                    'stato' => $presenza->stato,
-                    'note' => $presenza->note,
+                    'delegato_nome' => str($presenza->note ?: '')->after('Delega a ')->toString(),
                 ])
                 ->values()
                 ->all(),
@@ -467,10 +480,16 @@ class Assemblea extends Page
         ];
     }
 
-    private function socioOptions(): array
+    private function socioOptions(bool $activeOnly = false): array
     {
-        return Socio::query()
-            ->sociEffettivi()
+        $query = Socio::query()
+            ->sociEffettivi();
+
+        if ($activeOnly) {
+            $query->attivi();
+        }
+
+        return $query
             ->orderBy('cognome')
             ->orderBy('nome')
             ->get()
@@ -478,5 +497,17 @@ class Assemblea extends Page
                 $socio->id => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
             ])
             ->all();
+    }
+
+    private function presidenteLabel(): ?string
+    {
+        $presidente = Socio::query()
+            ->where('carica_sociale', 'presidente')
+            ->attivi()
+            ->orderBy('cognome')
+            ->orderBy('nome')
+            ->first();
+
+        return $presidente ? "{$presidente->cognome} {$presidente->nome}" : null;
     }
 }

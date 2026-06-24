@@ -83,7 +83,7 @@ class AssembleaService
                 'started_at' => now(),
             ]);
 
-            $this->syncPresenze($assemblea, $data['presenze'] ?? $this->defaultPresenze());
+            $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
 
             return $assemblea->refresh();
@@ -103,7 +103,7 @@ class AssembleaService
                 'modalita' => $data['modalita'] ?? 'presenza',
             ]);
 
-            $this->syncPresenze($assemblea, $data['presenze'] ?? []);
+            $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
 
             return $assemblea->refresh();
@@ -223,6 +223,48 @@ class AssembleaService
                 'stato' => 'assente',
                 'note' => null,
             ])
+            ->all();
+    }
+
+    public function presenzeFromDigitalData(array $data): array
+    {
+        $presentIds = collect($data['present_socio_ids'] ?? [])
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $deleghe = collect($data['deleghe'] ?? [])
+            ->filter(fn (array $delega): bool => filled($delega['socio_id'] ?? null))
+            ->mapWithKeys(fn (array $delega): array => [
+                (int) $delega['socio_id'] => trim((string) ($delega['delegato_nome'] ?? '')),
+            ]);
+
+        return Socio::query()
+            ->sociEffettivi()
+            ->attivi()
+            ->orderBy('cognome')
+            ->orderBy('nome')
+            ->get()
+            ->map(function (Socio $socio) use ($presentIds, $deleghe): array {
+                $stato = 'assente';
+                $note = null;
+
+                if ($deleghe->has($socio->id)) {
+                    $stato = 'delega';
+                    $delegato = $deleghe->get($socio->id);
+                    $note = $delegato ? "Delega a {$delegato}" : null;
+                } elseif ($presentIds->contains($socio->id)) {
+                    $stato = 'presente';
+                }
+
+                return [
+                    'socio_id' => $socio->id,
+                    'socio_label' => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
+                    'stato' => $stato,
+                    'note' => $note,
+                ];
+            })
             ->all();
     }
 

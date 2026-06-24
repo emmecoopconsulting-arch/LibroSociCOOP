@@ -59,6 +59,11 @@ class SociosTable
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Si' : 'No')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('carica_sociale')
+                    ->label('Carica')
+                    ->formatStateUsing(fn (?string $state): string => Socio::CARICHE_SOCIALI[$state] ?? (string) $state)
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('data_ammissione')
                     ->label('Ammesso il')
                     ->date('d/m/Y')
@@ -114,6 +119,7 @@ class SociosTable
                                     'data_ammissione' => 'Data ammissione',
                                     'data_uscita' => 'Data uscita',
                                     'is_cda_member' => 'Membro CDA',
+                                    'carica_sociale' => 'Carica',
                                     'ha_permesso_soggiorno' => 'Permesso di soggiorno',
                                     'scadenza_permesso_soggiorno' => 'Scadenza permesso di soggiorno',
                                     'mansione' => 'Mansione',
@@ -147,6 +153,11 @@ class SociosTable
                                     Toggle::make('is_cda_member')
                                         ->label('Membro CDA')
                                         ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'is_cda_member')),
+                                    Select::make('carica_sociale')
+                                        ->label('Carica')
+                                        ->options(Socio::CARICHE_SOCIALI)
+                                        ->placeholder('Nessuna carica')
+                                        ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'carica_sociale')),
                                     Toggle::make('ha_permesso_soggiorno')
                                         ->label('Permesso di soggiorno')
                                         ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'ha_permesso_soggiorno')),

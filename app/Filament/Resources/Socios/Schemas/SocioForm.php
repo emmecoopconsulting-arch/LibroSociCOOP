@@ -77,6 +77,12 @@ class SocioForm
                             ->default(false)
                             ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
                             ->dehydrated(),
+                        Select::make('carica_sociale')
+                            ->label('Carica')
+                            ->options(Socio::CARICHE_SOCIALI)
+                            ->placeholder('Nessuna carica')
+                            ->native(false)
+                            ->live(),
                         DatePicker::make('data_ammissione')
                             ->label('Data ammissione')
                             ->required(fn ($get): bool => $get('stato') === 'attivo' && $get('tipologia') !== Socio::TIPOLOGIA_MEMBRO_CDA),
