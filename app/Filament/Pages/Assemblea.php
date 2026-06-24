@@ -90,6 +90,7 @@ class Assemblea extends Page
                                 Select::make('socio_id')
                                     ->label('Socio')
                                     ->options(fn (): array => Socio::query()
+                                        ->sociEffettivi()
                                         ->orderBy('cognome')
                                         ->orderBy('nome')
                                         ->get()

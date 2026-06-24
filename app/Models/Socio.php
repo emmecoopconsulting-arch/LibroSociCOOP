@@ -42,10 +42,13 @@ class Socio extends Model
 {
     use LogsActivity, SoftDeletes;
 
+    public const TIPOLOGIA_MEMBRO_CDA = 'membro_cda';
+
     public const TIPOLOGIE = [
         'fondatore' => 'Fondatore',
         'volontario' => 'Volontario',
         'ordinario' => 'Ordinario',
+        self::TIPOLOGIA_MEMBRO_CDA => 'Membro CDA (non socio)',
     ];
 
     public const STATI = [
@@ -155,6 +158,16 @@ class Socio extends Model
         return $query->where('stato', 'attivo');
     }
 
+    public function scopeSociEffettivi(Builder $query): Builder
+    {
+        return $query->where('tipologia', '!=', self::TIPOLOGIA_MEMBRO_CDA);
+    }
+
+    public function scopeOrdinari(Builder $query): Builder
+    {
+        return $query->where('tipologia', 'ordinario');
+    }
+
     public function getNomeCompletoAttribute(): string
     {
         return trim("{$this->nome} {$this->cognome}");
@@ -162,6 +175,12 @@ class Socio extends Model
 
     private function normalizeDerivedFields(): void
     {
+        if ($this->tipologia === self::TIPOLOGIA_MEMBRO_CDA) {
+            $this->is_cda_member = true;
+            $this->quota_sociale = 0;
+            $this->capitale_versato = 0;
+        }
+
         if (! $this->ha_permesso_soggiorno) {
             $this->scadenza_permesso_soggiorno = null;
         }

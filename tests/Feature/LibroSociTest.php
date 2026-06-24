@@ -678,6 +678,36 @@ class LibroSociTest extends TestCase
             ->assertHeader('content-disposition');
     }
 
+    public function test_cda_member_type_is_not_counted_as_effective_socio(): void
+    {
+        Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        $cdaMember = Socio::create([
+            'tipologia' => Socio::TIPOLOGIA_MEMBRO_CDA,
+            'nome' => 'Luigi',
+            'cognome' => 'Bianchi',
+            'codice_fiscale' => 'BNCLGU80A01H501V',
+            'stato' => 'attivo',
+            'is_cda_member' => false,
+            'quota_sociale' => 50,
+            'capitale_versato' => 500,
+        ]);
+
+        $this->assertTrue($cdaMember->refresh()->is_cda_member);
+        $this->assertSame('0.00', $cdaMember->quota_sociale);
+        $this->assertSame('0.00', $cdaMember->capitale_versato);
+        $this->assertSame(1, Socio::query()->sociEffettivi()->count());
+        $this->assertSame(100.0, (float) Socio::query()->sociEffettivi()->sum('capitale_versato'));
+    }
+
     public function test_guided_work_variation_creates_verbale_and_contract(): void
     {
         $socio = Socio::create([

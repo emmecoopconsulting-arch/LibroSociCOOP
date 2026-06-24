@@ -15,7 +15,7 @@ return new class extends Migration
             ->update(['tipologia' => 'ordinario']);
 
         if (DB::connection()->getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE socios MODIFY tipologia ENUM('fondatore', 'volontario', 'ordinario') NOT NULL");
+            DB::statement("ALTER TABLE socios MODIFY tipologia ENUM('fondatore', 'volontario', 'ordinario', 'membro_cda') NOT NULL");
         }
     }
 
@@ -25,7 +25,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::connection()->getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE socios MODIFY tipologia ENUM('fondatore', 'lavoratore', 'volontario', 'ordinario') NOT NULL");
+            DB::statement("ALTER TABLE socios MODIFY tipologia ENUM('fondatore', 'lavoratore', 'volontario', 'ordinario', 'membro_cda') NOT NULL");
         }
     }
 };

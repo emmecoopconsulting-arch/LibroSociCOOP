@@ -20,7 +20,7 @@ class VerbaleForm
                     ->schema([
                         Select::make('socio_id')
                             ->label('Socio')
-                            ->relationship('socio', 'codice_socio')
+                            ->relationship('socio', 'codice_socio', modifyQueryUsing: fn ($query) => $query->sociEffettivi())
                             ->getOptionLabelFromRecordUsing(fn ($record): string => "{$record->codice_socio} - {$record->cognome} {$record->nome}")
                             ->searchable(['codice_socio', 'cognome', 'nome', 'codice_fiscale'])
                             ->preload()

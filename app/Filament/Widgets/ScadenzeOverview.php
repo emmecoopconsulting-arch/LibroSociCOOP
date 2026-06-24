@@ -35,6 +35,7 @@ class ScadenzeOverview extends Widget
         $alertDays = AppSetting::int(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS);
 
         return Socio::query()
+            ->sociEffettivi()
             ->where('ha_permesso_soggiorno', true)
             ->whereDate('scadenza_permesso_soggiorno', '<=', $today->addDays($alertDays))
             ->orderBy('scadenza_permesso_soggiorno')
@@ -61,6 +62,7 @@ class ScadenzeOverview extends Widget
     private function permessiScadutiCount(): int
     {
         return Socio::query()
+            ->sociEffettivi()
             ->where('ha_permesso_soggiorno', true)
             ->whereDate('scadenza_permesso_soggiorno', '<', CarbonImmutable::today())
             ->count();

@@ -74,10 +74,12 @@ class SocioForm
                             ->live(),
                         Toggle::make('is_cda_member')
                             ->label('Membro CDA')
-                            ->default(false),
+                            ->default(false)
+                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
+                            ->dehydrated(),
                         DatePicker::make('data_ammissione')
                             ->label('Data ammissione')
-                            ->required(fn ($get): bool => $get('stato') === 'attivo'),
+                            ->required(fn ($get): bool => $get('stato') === 'attivo' && $get('tipologia') !== Socio::TIPOLOGIA_MEMBRO_CDA),
                         FileUpload::make('verbale_cda_path')
                             ->label('Verbale CDA')
                             ->disk('local')
@@ -100,12 +102,16 @@ class SocioForm
                             ->label('Quota sociale')
                             ->numeric()
                             ->default(0)
-                            ->prefix('EUR'),
+                            ->prefix('EUR')
+                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
+                            ->dehydrated(),
                         TextInput::make('capitale_versato')
                             ->label('Capitale versato')
                             ->numeric()
                             ->default(0)
-                            ->prefix('EUR'),
+                            ->prefix('EUR')
+                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
+                            ->dehydrated(),
                     ]),
                 Section::make('Contratto di lavoro')
                     ->columns(2)

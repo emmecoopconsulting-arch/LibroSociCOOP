@@ -26,6 +26,7 @@ class GestioneVerbali extends Page
     public function missingSoci()
     {
         return Socio::query()
+            ->sociEffettivi()
             ->attivi()
             ->whereDoesntHave('verbales', fn ($query) => $query
                 ->where('tipo', 'ammissione'))
@@ -43,6 +44,7 @@ class GestioneVerbali extends Page
     public function missingAdmissionsCount(): int
     {
         return Socio::query()
+            ->sociEffettivi()
             ->attivi()
             ->whereDoesntHave('verbales', fn ($query) => $query
                 ->where('tipo', 'ammissione'))

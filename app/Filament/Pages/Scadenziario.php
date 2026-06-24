@@ -112,6 +112,7 @@ class Scadenziario extends Page
     private function deadlineEvents(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
         $permessi = Socio::query()
+            ->sociEffettivi()
             ->where('ha_permesso_soggiorno', true)
             ->whereBetween('scadenza_permesso_soggiorno', [$start, $end])
             ->orderBy('scadenza_permesso_soggiorno')

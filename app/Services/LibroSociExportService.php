@@ -17,6 +17,7 @@ class LibroSociExportService
     public function pdfResponse(): Response
     {
         $soci = Socio::query()
+            ->sociEffettivi()
             ->attivi()
             ->orderBy('cognome')
             ->orderBy('nome')
@@ -49,7 +50,7 @@ class LibroSociExportService
         ], null, 'A1');
 
         $row = 2;
-        Socio::query()->attivi()->orderBy('cognome')->orderBy('nome')->each(function (Socio $socio) use ($sheet, &$row): void {
+        Socio::query()->sociEffettivi()->attivi()->orderBy('cognome')->orderBy('nome')->each(function (Socio $socio) use ($sheet, &$row): void {
             $sheet->fromArray([
                 $socio->codice_socio,
                 $socio->cognome,

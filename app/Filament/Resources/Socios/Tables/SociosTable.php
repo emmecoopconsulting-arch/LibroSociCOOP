@@ -113,6 +113,7 @@ class SociosTable
                                     'stato' => 'Stato',
                                     'data_ammissione' => 'Data ammissione',
                                     'data_uscita' => 'Data uscita',
+                                    'is_cda_member' => 'Membro CDA',
                                     'ha_permesso_soggiorno' => 'Permesso di soggiorno',
                                     'scadenza_permesso_soggiorno' => 'Scadenza permesso di soggiorno',
                                     'mansione' => 'Mansione',
@@ -143,6 +144,9 @@ class SociosTable
                                     DatePicker::make('data_uscita')
                                         ->label('Data uscita')
                                         ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'data_uscita')),
+                                    Toggle::make('is_cda_member')
+                                        ->label('Membro CDA')
+                                        ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'is_cda_member')),
                                     Toggle::make('ha_permesso_soggiorno')
                                         ->label('Permesso di soggiorno')
                                         ->visible(fn ($get): bool => self::bulkFieldSelected($get, 'ha_permesso_soggiorno')),

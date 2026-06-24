@@ -24,6 +24,7 @@ class LibroSoci extends Page
     public function soci()
     {
         return Socio::query()
+            ->sociEffettivi()
             ->attivi()
             ->orderBy('cognome')
             ->orderBy('nome')

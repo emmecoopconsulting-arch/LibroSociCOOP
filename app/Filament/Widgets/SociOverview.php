@@ -17,11 +17,12 @@ class SociOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $capitaleSociale = (float) Socio::sum('capitale_versato');
+        $capitaleSociale = (float) Socio::query()->sociEffettivi()->sum('capitale_versato');
         $today = CarbonImmutable::today();
         $permessoAlertDays = AppSetting::int(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS);
         $visitaAlertDays = AppSetting::int(AppSetting::VISITA_MEDICA_ALERT_DAYS);
         $permessiScaduti = Socio::query()
+            ->sociEffettivi()
             ->where('ha_permesso_soggiorno', true)
             ->whereDate('scadenza_permesso_soggiorno', '<', $today)
             ->count();
@@ -33,15 +34,15 @@ class SociOverview extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make('Soci totali', Socio::count())
+            Stat::make('Soci totali', Socio::query()->sociEffettivi()->count())
                 ->description('Iscritti nel libro soci')
                 ->icon('heroicon-o-users')
                 ->color('primary'),
-            Stat::make('Soci attivi', Socio::attivi()->count())
+            Stat::make('Soci attivi', Socio::query()->sociEffettivi()->attivi()->count())
                 ->description('Stato attivo')
                 ->icon('heroicon-o-user-group')
                 ->color('success'),
-            Stat::make('Soci ordinari', Socio::where('tipologia', 'ordinario')->count())
+            Stat::make('Soci ordinari', Socio::query()->ordinari()->count())
                 ->description('Tipologia ordinario')
                 ->icon('heroicon-o-identification')
                 ->color('info'),
@@ -50,6 +51,7 @@ class SociOverview extends StatsOverviewWidget
                 ->icon('heroicon-o-banknotes')
                 ->color('warning'),
             Stat::make('Permessi in scadenza', Socio::query()
+                ->sociEffettivi()
                 ->where('ha_permesso_soggiorno', true)
                 ->whereDate('scadenza_permesso_soggiorno', '<=', $today->addDays($permessoAlertDays))
                 ->count())

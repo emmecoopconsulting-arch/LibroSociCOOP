@@ -113,6 +113,7 @@ class VerbalePdfService
         $count = 0;
 
         Socio::query()
+            ->sociEffettivi()
             ->where('stato', 'attivo')
             ->whereDoesntHave('verbales', fn ($query) => $query
                 ->where('tipo', 'ammissione')
@@ -153,11 +154,12 @@ class VerbalePdfService
 
         $sociOrdinariAltri = Socio::query()
             ->whereKeyNot($socio->getKey())
-            ->where('tipologia', 'ordinario')
+            ->ordinari()
             ->count();
 
         $capitaleAltri = (float) Socio::query()
             ->whereKeyNot($socio->getKey())
+            ->sociEffettivi()
             ->sum('capitale_versato');
 
         $sociOrdinariEntrati = $isAmmissione && $isOrdinario ? 1 : 0;
