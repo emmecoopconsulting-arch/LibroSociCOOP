@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WorkAbsences\Schemas;
 use App\Models\Socio;
 use App\Models\WorkAbsence;
 use App\Models\WorkOrder;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Section;
@@ -26,8 +27,8 @@ class WorkAbsenceForm
                             ->searchable()
                             ->preload()
                             ->required(),
-                        Select::make('socio_id')
-                            ->label('Socio lavoratore')
+                        Select::make('socio_ids')
+                            ->label('Soci assenti')
                             ->options(fn (): array => Socio::query()
                                 ->attivi()
                                 ->where('tipologia', 'ordinario')
@@ -38,6 +39,7 @@ class WorkAbsenceForm
                                     $socio->id => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
                                 ])
                                 ->all())
+                            ->multiple()
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -45,6 +47,13 @@ class WorkAbsenceForm
                             ->label('Tipo assenza')
                             ->options(WorkAbsence::TIPI)
                             ->required(),
+                        DatePicker::make('data_inizio')
+                            ->label('Data inizio')
+                            ->required(),
+                        DatePicker::make('data_fine')
+                            ->label('Data fine')
+                            ->required()
+                            ->afterOrEqual('data_inizio'),
                         Textarea::make('note')
                             ->label('Note')
                             ->columnSpanFull(),

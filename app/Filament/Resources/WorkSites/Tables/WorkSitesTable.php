@@ -13,12 +13,8 @@ class WorkSitesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('orario_inizio')
+            ->defaultSort('nome')
             ->columns([
-                TextColumn::make('order.data_servizio')
-                    ->label('Data')
-                    ->date('d/m/Y')
-                    ->sortable(),
                 TextColumn::make('nome')
                     ->label('Cantiere')
                     ->searchable()
@@ -26,16 +22,14 @@ class WorkSitesTable
                 TextColumn::make('luogo')
                     ->label('Luogo')
                     ->searchable(),
-                TextColumn::make('orario_inizio')
-                    ->label('Inizio'),
-                TextColumn::make('orario_fine')
-                    ->label('Fine'),
-                TextColumn::make('vehicle.nome')
-                    ->label('Mezzo')
-                    ->placeholder('-'),
-                TextColumn::make('assignments_count')
-                    ->label('Persone')
-                    ->counts('assignments'),
+                TextColumn::make('order_sites_count')
+                    ->label('Ordini')
+                    ->counts('orderSites')
+                    ->sortable(),
+                TextColumn::make('note')
+                    ->label('Note')
+                    ->limit(60)
+                    ->toggleable(),
             ])
             ->recordActions([
                 EditAction::make(),

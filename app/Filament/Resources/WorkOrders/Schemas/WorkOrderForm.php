@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WorkOrders\Schemas;
 use App\Models\Socio;
 use App\Models\WorkAbsence;
 use App\Models\WorkOrder;
+use App\Models\WorkSite;
 use App\Models\WorkVehicle;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -56,23 +57,24 @@ class WorkOrderForm
                             ->addActionLabel('Aggiungi cantiere')
                             ->columns(2)
                             ->schema([
-                                TextInput::make('nome')
+                                Select::make('work_site_id')
                                     ->label('Cantiere')
-                                    ->required()
-                                    ->maxLength(255),
-                                TextInput::make('luogo')
-                                    ->label('Luogo')
-                                    ->required()
-                                    ->maxLength(255),
+                                    ->options(fn (): array => WorkSite::query()
+                                        ->orderBy('nome')
+                                        ->get()
+                                        ->mapWithKeys(fn (WorkSite $site): array => [
+                                            $site->id => "{$site->nome} - {$site->luogo}",
+                                        ])
+                                        ->all())
+                                    ->searchable()
+                                    ->preload()
+                                    ->required(),
                                 TextInput::make('orario_inizio')
                                     ->label('Ora inizio')
-                                    ->type('time')
-                                    ->required(),
+                                    ->type('time'),
                                 TextInput::make('orario_fine')
                                     ->label('Ora fine')
-                                    ->type('time')
-                                    ->required()
-                                    ->after('orario_inizio'),
+                                    ->type('time'),
                                 Select::make('work_vehicle_id')
                                     ->label('Mezzo utilizzato')
                                     ->options(fn (): array => WorkVehicle::query()
@@ -85,29 +87,21 @@ class WorkOrderForm
                                         ->all())
                                     ->searchable()
                                     ->preload(),
-                                Repeater::make('assignments')
+                                Select::make('socio_ids')
                                     ->label('Persone assegnate')
-                                    ->relationship('assignments')
-                                    ->addActionLabel('Aggiungi persona')
-                                    ->reorderable(false)
-                                    ->schema([
-                                        Select::make('socio_id')
-                                            ->label('Socio lavoratore attivo')
-                                            ->options(fn (): array => Socio::query()
-                                                ->attivi()
-                                                ->where('tipologia', 'ordinario')
-                                                ->orderBy('cognome')
-                                                ->orderBy('nome')
-                                                ->get()
-                                                ->mapWithKeys(fn (Socio $socio): array => [
-                                                    $socio->id => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
-                                                ])
-                                                ->all())
-                                            ->searchable()
-                                            ->preload()
-                                            ->distinct()
-                                            ->required(),
-                                    ])
+                                    ->options(fn (): array => Socio::query()
+                                        ->attivi()
+                                        ->where('tipologia', 'ordinario')
+                                        ->orderBy('cognome')
+                                        ->orderBy('nome')
+                                        ->get()
+                                        ->mapWithKeys(fn (Socio $socio): array => [
+                                            $socio->id => "{$socio->cognome} {$socio->nome}",
+                                        ])
+                                        ->all())
+                                    ->multiple()
+                                    ->searchable()
+                                    ->preload()
                                     ->columnSpanFull(),
                                 Textarea::make('note')
                                     ->label('Note cantiere')
@@ -124,8 +118,8 @@ class WorkOrderForm
                             ->reorderable(false)
                             ->columns(2)
                             ->schema([
-                                Select::make('socio_id')
-                                    ->label('Socio lavoratore')
+                                Select::make('socio_ids')
+                                    ->label('Soci assenti')
                                     ->options(fn (): array => Socio::query()
                                         ->attivi()
                                         ->where('tipologia', 'ordinario')
@@ -136,14 +130,21 @@ class WorkOrderForm
                                             $socio->id => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
                                         ])
                                         ->all())
+                                    ->multiple()
                                     ->searchable()
                                     ->preload()
-                                    ->distinct()
                                     ->required(),
                                 Select::make('tipo')
                                     ->label('Tipo assenza')
                                     ->options(WorkAbsence::TIPI)
                                     ->required(),
+                                DatePicker::make('data_inizio')
+                                    ->label('Data inizio')
+                                    ->required(),
+                                DatePicker::make('data_fine')
+                                    ->label('Data fine')
+                                    ->required()
+                                    ->afterOrEqual('data_inizio'),
                                 Textarea::make('note')
                                     ->label('Note assenza')
                                     ->columnSpanFull(),

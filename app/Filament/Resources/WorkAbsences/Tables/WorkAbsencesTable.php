@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WorkAbsences\Tables;
 
+use App\Models\Socio;
 use App\Models\WorkAbsence;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -21,13 +22,28 @@ class WorkAbsencesTable
                     ->label('Data')
                     ->date('d/m/Y')
                     ->sortable(),
-                TextColumn::make('socio.nome_completo')
-                    ->label('Socio')
-                    ->searchable(['nome', 'cognome']),
+                TextColumn::make('socio_ids')
+                    ->label('Soci')
+                    ->formatStateUsing(fn (?array $state): string => Socio::query()
+                        ->whereIn('id', $state ?? [])
+                        ->orderBy('cognome')
+                        ->orderBy('nome')
+                        ->get()
+                        ->pluck('nome_completo')
+                        ->join(', '))
+                    ->wrap(),
                 TextColumn::make('tipo')
                     ->label('Tipo')
                     ->formatStateUsing(fn (?string $state): string => WorkAbsence::TIPI[$state] ?? (string) $state)
                     ->badge(),
+                TextColumn::make('data_inizio')
+                    ->label('Dal')
+                    ->date('d/m/Y')
+                    ->sortable(),
+                TextColumn::make('data_fine')
+                    ->label('Al')
+                    ->date('d/m/Y')
+                    ->sortable(),
                 TextColumn::make('note')
                     ->label('Note')
                     ->limit(60)

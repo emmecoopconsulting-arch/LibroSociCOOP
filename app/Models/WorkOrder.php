@@ -31,7 +31,7 @@ class WorkOrder extends Model
 
     public function sites(): HasMany
     {
-        return $this->hasMany(WorkSite::class)->orderBy('orario_inizio');
+        return $this->hasMany(WorkOrderSite::class)->orderBy('orario_inizio');
     }
 
     public function absences(): HasMany

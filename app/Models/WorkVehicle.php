@@ -30,7 +30,7 @@ class WorkVehicle extends Model
 
     public function sites(): HasMany
     {
-        return $this->hasMany(WorkSite::class);
+        return $this->hasMany(WorkOrderSite::class);
     }
 
     public function scopeAttivi(Builder $query): Builder

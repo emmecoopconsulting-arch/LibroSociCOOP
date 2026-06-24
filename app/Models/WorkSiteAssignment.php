@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'work_site_id',
+    'work_order_site_id',
     'socio_id',
 ])]
 class WorkSiteAssignment extends Model
@@ -20,9 +20,9 @@ class WorkSiteAssignment extends Model
         });
     }
 
-    public function site(): BelongsTo
+    public function orderSite(): BelongsTo
     {
-        return $this->belongsTo(WorkSite::class, 'work_site_id');
+        return $this->belongsTo(WorkOrderSite::class, 'work_order_site_id');
     }
 
     public function socio(): BelongsTo

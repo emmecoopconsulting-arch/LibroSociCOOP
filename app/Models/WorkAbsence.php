@@ -10,7 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'work_order_id',
     'socio_id',
+    'socio_ids',
     'tipo',
+    'data_inizio',
+    'data_fine',
     'note',
 ])]
 class WorkAbsence extends Model
@@ -27,6 +30,15 @@ class WorkAbsence extends Model
         static::saving(function (WorkAbsence $absence): void {
             app(WorkOrderScheduleValidator::class)->validateAbsence($absence);
         });
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'socio_ids' => 'array',
+            'data_inizio' => 'date',
+            'data_fine' => 'date',
+        ];
     }
 
     public function order(): BelongsTo

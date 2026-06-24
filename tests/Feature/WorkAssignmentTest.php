@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Socio;
 use App\Models\WorkAbsence;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderSite;
 use App\Models\WorkSite;
-use App\Models\WorkSiteAssignment;
 use App\Models\WorkVehicle;
 use App\Services\WorkOrderPdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,19 +26,10 @@ class WorkAssignmentTest extends TestCase
             'titolo' => 'Ordine di servizio del 24/06/2026',
         ]);
 
-        $morning = $this->site($order, 'Cantiere mattina', '08:00', '12:00');
-        $afternoon = $this->site($order, 'Cantiere pomeriggio', '13:00', '17:00');
+        $this->orderSite($order, 'Cantiere mattina', '08:00', '12:00', socioIds: [$socio->id]);
+        $this->orderSite($order, 'Cantiere pomeriggio', '13:00', '17:00', socioIds: [$socio->id]);
 
-        WorkSiteAssignment::create([
-            'work_site_id' => $morning->id,
-            'socio_id' => $socio->id,
-        ]);
-        WorkSiteAssignment::create([
-            'work_site_id' => $afternoon->id,
-            'socio_id' => $socio->id,
-        ]);
-
-        $this->assertDatabaseCount('work_site_assignments', 2);
+        $this->assertDatabaseCount('work_order_sites', 2);
     }
 
     public function test_worker_cannot_be_assigned_to_overlapping_sites_in_same_order(): void
@@ -49,20 +40,24 @@ class WorkAssignmentTest extends TestCase
             'titolo' => 'Ordine di servizio del 24/06/2026',
         ]);
 
-        $first = $this->site($order, 'Primo cantiere', '08:00', '12:00');
-        $second = $this->site($order, 'Secondo cantiere', '11:00', '15:00');
-
-        WorkSiteAssignment::create([
-            'work_site_id' => $first->id,
-            'socio_id' => $socio->id,
-        ]);
+        $this->orderSite($order, 'Primo cantiere', '08:00', '12:00', socioIds: [$socio->id]);
 
         $this->expectException(ValidationException::class);
 
-        WorkSiteAssignment::create([
-            'work_site_id' => $second->id,
-            'socio_id' => $socio->id,
+        $this->orderSite($order, 'Secondo cantiere', '11:00', '15:00', socioIds: [$socio->id]);
+    }
+
+    public function test_end_time_is_optional_for_order_site(): void
+    {
+        $socio = $this->socio('Giulia', 'Russo', 'RSSGLI80A41H501Z');
+        $order = WorkOrder::create([
+            'data_servizio' => '2026-06-24',
+            'titolo' => 'Ordine di servizio del 24/06/2026',
         ]);
+
+        $site = $this->orderSite($order, 'Cantiere senza fine', '08:00', null, socioIds: [$socio->id]);
+
+        $this->assertNull($site->orario_fine);
     }
 
     public function test_absent_worker_cannot_be_assigned_to_a_site(): void
@@ -72,20 +67,18 @@ class WorkAssignmentTest extends TestCase
             'data_servizio' => '2026-06-24',
             'titolo' => 'Ordine di servizio del 24/06/2026',
         ]);
-        $site = $this->site($order, 'Cantiere', '08:00', '12:00');
 
         WorkAbsence::create([
             'work_order_id' => $order->id,
-            'socio_id' => $socio->id,
+            'socio_ids' => [$socio->id],
             'tipo' => 'ferie',
+            'data_inizio' => '2026-06-24',
+            'data_fine' => '2026-06-30',
         ]);
 
         $this->expectException(ValidationException::class);
 
-        WorkSiteAssignment::create([
-            'work_site_id' => $site->id,
-            'socio_id' => $socio->id,
-        ]);
+        $this->orderSite($order, 'Cantiere', '08:00', '12:00', socioIds: [$socio->id]);
     }
 
     public function test_work_order_pdf_can_be_archived(): void
@@ -102,12 +95,7 @@ class WorkAssignmentTest extends TestCase
             'data_servizio' => '2026-06-24',
             'titolo' => 'Ordine di servizio del 24/06/2026',
         ]);
-        $site = $this->site($order, 'Cantiere principale', '08:00', '12:00', $vehicle->id);
-
-        WorkSiteAssignment::create([
-            'work_site_id' => $site->id,
-            'socio_id' => $socio->id,
-        ]);
+        $this->orderSite($order, 'Cantiere principale', '08:00', '12:00', $vehicle->id, [$socio->id]);
 
         $archived = app(WorkOrderPdfService::class)->generate($order, archive: true);
 
@@ -129,13 +117,19 @@ class WorkAssignmentTest extends TestCase
         ]);
     }
 
-    private function site(WorkOrder $order, string $nome, string $inizio, string $fine, ?int $vehicleId = null): WorkSite
+    private function orderSite(WorkOrder $order, string $nome, string $inizio, ?string $fine, ?int $vehicleId = null, array $socioIds = []): WorkOrderSite
     {
-        return WorkSite::create([
+        $site = WorkSite::create([
             'work_order_id' => $order->id,
-            'work_vehicle_id' => $vehicleId,
             'nome' => $nome,
             'luogo' => 'Novi Ligure',
+        ]);
+
+        return WorkOrderSite::create([
+            'work_order_id' => $order->id,
+            'work_site_id' => $site->id,
+            'work_vehicle_id' => $vehicleId,
+            'socio_ids' => $socioIds,
             'orario_inizio' => $inizio,
             'orario_fine' => $fine,
         ]);

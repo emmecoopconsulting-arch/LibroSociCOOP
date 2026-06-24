@@ -15,9 +15,9 @@ class WorkOrderPdfService
     public function generate(WorkOrder $order, bool $archive = false): WorkOrder
     {
         $order->loadMissing([
-            'sites.assignments.socio',
+            'sites.site',
             'sites.vehicle',
-            'absences.socio',
+            'absences',
         ]);
 
         $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.work-order', [
