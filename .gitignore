@@ -1,3 +1,5 @@
+<<<<<<< ours
+<<<<<<< ours
 *.log
 .DS_Store
 .env
@@ -25,3 +27,13 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+=======
+node_modules/
+dist/
+.DS_Store
+>>>>>>> theirs
+=======
+node_modules/
+dist/
+.DS_Store
+>>>>>>> theirs

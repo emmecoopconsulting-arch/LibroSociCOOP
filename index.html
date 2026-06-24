@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestione Soci - Cantieri</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Gestione soci</p>
+        <h1>Sezione Cantieri</h1>
+        <p>Organizza cantieri, mezzi e ordine di servizio giornaliero.</p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <nav class="tabs" aria-label="Sezioni cantieri">
+        <button class="tab active" data-tab="ordine">Ordine di servizio giornaliero</button>
+        <button class="tab" data-tab="cantieri">Cantieri</button>
+        <button class="tab" data-tab="mezzi">Mezzi</button>
+        <button class="tab" data-tab="soci">Soci lavoratori</button>
+      </nav>
+
+      <section id="ordine" class="panel active" aria-labelledby="ordine-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Programmazione</p>
+            <h2 id="ordine-title">Ordine di servizio giornaliero</h2>
+          </div>
+          <label class="date-field">Data ordine
+            <input id="service-date" type="date" />
+          </label>
+        </div>
+        <div class="card muted">
+          <p>Ogni ordine è pensato per il giorno successivo. Seleziona i cantieri, assegna soci ordinari lavoratori attivi, orario/luogo e mezzo utilizzato.</p>
+        </div>
+        <div class="actions">
+          <button id="add-site-section" class="primary">+ Aggiungi cantiere all'ordine</button>
+          <button id="save-order">Salva ordine</button>
+        </div>
+        <div id="order-sites" class="stack"></div>
+        <section class="card">
+          <h3>Assenze</h3>
+          <div class="absence-grid">
+            <label>Malati<textarea id="abs-malati" rows="3" placeholder="Nomi o note"></textarea></label>
+            <label>Ferie<textarea id="abs-ferie" rows="3" placeholder="Nomi o note"></textarea></label>
+            <label>Permessi<textarea id="abs-permessi" rows="3" placeholder="Nomi o note"></textarea></label>
+            <label>Altre assenze<textarea id="abs-altre" rows="3" placeholder="Nomi o note"></textarea></label>
+          </div>
+        </section>
+      </section>
+
+      <section id="cantieri" class="panel" aria-labelledby="cantieri-title">
+        <div class="panel-heading"><div><p class="eyebrow">Anagrafica</p><h2 id="cantieri-title">Cantieri</h2></div></div>
+        <form id="site-form" class="card form-grid">
+          <label>Nome cantiere<input id="site-name" required placeholder="Es. Ristrutturazione Via Roma" /></label>
+          <label>Indirizzo / luogo<input id="site-place" placeholder="Es. Via Roma 10" /></label>
+          <label>Referente<input id="site-contact" placeholder="Es. Mario Rossi" /></label>
+          <button class="primary" type="submit">Salva cantiere</button>
+        </form>
+        <div id="sites-list" class="cards-list"></div>
+      </section>
+
+      <section id="mezzi" class="panel" aria-labelledby="mezzi-title">
+        <div class="panel-heading"><div><p class="eyebrow">Risorse</p><h2 id="mezzi-title">Mezzi</h2></div></div>
+        <form id="vehicle-form" class="card form-grid">
+          <label>Nome mezzo<input id="vehicle-name" required placeholder="Es. Furgone Fiat Ducato" /></label>
+          <label>Targa / identificativo<input id="vehicle-plate" placeholder="Es. AB123CD" /></label>
+          <label>Proprietà<select id="vehicle-owner"><option value="Proprio">Proprio</option><option value="Ditta">Ditta</option></select></label>
+          <button class="primary" type="submit">Salva mezzo</button>
+        </form>
+        <div id="vehicles-list" class="cards-list"></div>
+      </section>
+
+      <section id="soci" class="panel" aria-labelledby="soci-title">
+        <div class="panel-heading"><div><p class="eyebrow">Elenco lavoratori</p><h2 id="soci-title">Soci ordinari attivi</h2></div></div>
+        <form id="worker-form" class="card form-grid">
+          <label>Nome e cognome<input id="worker-name" required placeholder="Es. Luca Bianchi" /></label>
+          <button class="primary" type="submit">Aggiungi socio lavoratore</button>
+        </form>
+        <div id="workers-list" class="cards-list"></div>
+      </section>
+    </main>
+
+    <template id="order-site-template">
+      <section class="card order-site">
+        <div class="site-row">
+          <label>Cantiere<select class="order-site-select"></select></label>
+          <button class="danger remove-site" type="button">Rimuovi cantiere</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Persona</th><th>Orario e luogo</th><th>Mezzo utilizzato</th><th></th></tr></thead>
+            <tbody class="assignments"></tbody>
+          </table>
+        </div>
+        <button class="add-assignment" type="button">+ Aggiungi persona</button>
+      </section>
+    </template>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

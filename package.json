@@ -1,4 +1,6 @@
 {
+<<<<<<< ours
+<<<<<<< ours
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
     "type": "module",
@@ -13,4 +15,22 @@
         "tailwindcss": "^4.0.0",
         "vite": "^8.0.0"
     }
+=======
+=======
+>>>>>>> theirs
+  "name": "gestione-soci",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "start": "vite --host 0.0.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  },
+  "type": "module"
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
