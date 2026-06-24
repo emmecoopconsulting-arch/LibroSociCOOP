@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Assemblea;
 use App\Models\DocumentHeaderSetting;
+use App\Models\Socio;
 use App\Models\SocioVariation;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Arr;
@@ -26,7 +27,13 @@ class AssembleaService
                 'data_assemblea' => $data['data_assemblea'],
                 'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
                 'note' => $data['note'] ?? null,
+                'presidente' => $data['presidente'] ?? null,
+                'segretario' => $data['segretario'] ?? null,
+                'luogo' => $data['luogo'] ?? null,
+                'modalita' => $data['modalita'] ?? 'presenza',
                 'stato' => 'generata',
+                'started_at' => now(),
+                'closed_at' => now(),
             ]);
 
             foreach ($data['variations'] ?? [] as $variationData) {
@@ -61,9 +68,111 @@ class AssembleaService
         return $this->generatePdf($assemblea->refresh());
     }
 
+    public function startDigital(array $data): Assemblea
+    {
+        return DB::transaction(function () use ($data): Assemblea {
+            $assemblea = Assemblea::create([
+                'data_assemblea' => $data['data_assemblea'],
+                'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
+                'note' => $data['note'] ?? null,
+                'presidente' => $data['presidente'] ?? null,
+                'segretario' => $data['segretario'] ?? null,
+                'luogo' => $data['luogo'] ?? null,
+                'modalita' => $data['modalita'] ?? 'presenza',
+                'stato' => 'in_corso',
+                'started_at' => now(),
+            ]);
+
+            $this->syncPresenze($assemblea, $data['presenze'] ?? $this->defaultPresenze());
+            $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
+
+            return $assemblea->refresh();
+        });
+    }
+
+    public function updateDigital(Assemblea $assemblea, array $data): Assemblea
+    {
+        return DB::transaction(function () use ($assemblea, $data): Assemblea {
+            $assemblea->update([
+                'data_assemblea' => $data['data_assemblea'],
+                'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
+                'note' => $data['note'] ?? null,
+                'presidente' => $data['presidente'] ?? null,
+                'segretario' => $data['segretario'] ?? null,
+                'luogo' => $data['luogo'] ?? null,
+                'modalita' => $data['modalita'] ?? 'presenza',
+            ]);
+
+            $this->syncPresenze($assemblea, $data['presenze'] ?? []);
+            $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
+
+            return $assemblea->refresh();
+        });
+    }
+
+    public function closeDigital(Assemblea $assemblea, array $data): Assemblea
+    {
+        if ($assemblea->stato === 'generata') {
+            return $assemblea;
+        }
+
+        if ($assemblea->stato === 'chiusa') {
+            $assemblea = $this->generatePdf($assemblea->refresh());
+            $assemblea->update(['stato' => 'generata']);
+
+            return $assemblea->refresh();
+        }
+
+        $assemblea = DB::transaction(function () use ($assemblea, $data): Assemblea {
+            $assemblea = $this->updateDigital($assemblea, $data);
+
+            foreach ($data['variations'] ?? [] as $variationData) {
+                if (blank($variationData['socio_id'] ?? null) || blank($variationData['tipo'] ?? null)) {
+                    continue;
+                }
+
+                $variation = $this->variationService->createAndApply([
+                    ...Arr::only($variationData, [
+                        'socio_id',
+                        'tipo',
+                        'data_effetto',
+                        'tipo_contratto',
+                        'data_inizio',
+                        'data_fine',
+                        'ore_settimanali',
+                        'note',
+                    ]),
+                    'data_verbale' => $data['data_assemblea'],
+                ]);
+
+                $variation->update(['assemblea_id' => $assemblea->id]);
+            }
+
+            $assemblea->update([
+                'stato' => 'chiusa',
+                'closed_at' => now(),
+            ]);
+
+            return $assemblea->refresh();
+        });
+
+        $assemblea->loadMissing(['variations.socio', 'variations.verbale']);
+
+        foreach ($assemblea->variations as $variation) {
+            if ($variation->verbale) {
+                $this->verbalePdfService->generate($variation->verbale);
+            }
+        }
+
+        $assemblea = $this->generatePdf($assemblea->refresh());
+        $assemblea->update(['stato' => 'generata']);
+
+        return $assemblea->refresh();
+    }
+
     public function generatePdf(Assemblea $assemblea): Assemblea
     {
-        $assemblea->loadMissing(['variations.socio', 'variations.verbale']);
+        $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'presenze.socio', 'puntiOdg']);
 
         $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.assemblea', [
             'assemblea' => $assemblea,
@@ -98,5 +207,71 @@ class AssembleaService
             Storage::disk('local')->path($assemblea->file_path),
             "verbale-assemblea-{$assemblea->data_assemblea->format('Ymd')}-{$assemblea->id}.pdf",
         );
+    }
+
+    public function defaultPresenze(): array
+    {
+        return Socio::query()
+            ->sociEffettivi()
+            ->attivi()
+            ->orderBy('cognome')
+            ->orderBy('nome')
+            ->get()
+            ->map(fn (Socio $socio): array => [
+                'socio_id' => $socio->id,
+                'socio_label' => "{$socio->codice_socio} - {$socio->cognome} {$socio->nome}",
+                'stato' => 'assente',
+                'note' => null,
+            ])
+            ->all();
+    }
+
+    private function syncPresenze(Assemblea $assemblea, array $presenze): void
+    {
+        foreach ($presenze as $presenzaData) {
+            if (blank($presenzaData['socio_id'] ?? null)) {
+                continue;
+            }
+
+            $stato = $presenzaData['stato'] ?? 'assente';
+            $existing = $assemblea->presenze()
+                ->where('socio_id', $presenzaData['socio_id'])
+                ->first();
+
+            $presenteAt = in_array($stato, ['presente', 'delega'], true)
+                ? ($existing?->presente_at ?? now())
+                : null;
+
+            $assemblea->presenze()->updateOrCreate(
+                ['socio_id' => $presenzaData['socio_id']],
+                [
+                    'stato' => $stato,
+                    'presente_at' => $presenteAt,
+                    'note' => $presenzaData['note'] ?? null,
+                ],
+            );
+        }
+    }
+
+    private function syncPuntiOdg(Assemblea $assemblea, array $puntiOdg): void
+    {
+        $assemblea->puntiOdg()->delete();
+
+        foreach (array_values($puntiOdg) as $index => $puntoData) {
+            if (blank($puntoData['titolo'] ?? null)) {
+                continue;
+            }
+
+            $assemblea->puntiOdg()->create([
+                'ordine' => $index + 1,
+                'titolo' => $puntoData['titolo'],
+                'descrizione' => $puntoData['descrizione'] ?? null,
+                'discussione' => $puntoData['discussione'] ?? null,
+                'esito' => $puntoData['esito'] ?? 'da_discutere',
+                'voti_favorevoli' => $puntoData['voti_favorevoli'] ?? null,
+                'voti_contrari' => $puntoData['voti_contrari'] ?? null,
+                'astenuti' => $puntoData['astenuti'] ?? null,
+            ]);
+        }
     }
 }

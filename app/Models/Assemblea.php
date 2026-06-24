@@ -10,14 +10,30 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'data_assemblea',
     'titolo',
     'note',
+    'presidente',
+    'segretario',
+    'luogo',
+    'modalita',
     'stato',
+    'started_at',
+    'closed_at',
     'file_path',
     'generato_il',
 ])]
 class Assemblea extends Model
 {
     public const STATI = [
+        'bozza' => 'Bozza',
+        'in_corso' => 'In corso',
+        'chiusa' => 'Chiusa',
         'generata' => 'Generata',
+        'annullata' => 'Annullata',
+    ];
+
+    public const MODALITA = [
+        'presenza' => 'In presenza',
+        'online' => 'Online',
+        'mista' => 'Mista',
     ];
 
     protected $table = 'assemblee';
@@ -26,6 +42,8 @@ class Assemblea extends Model
     {
         return [
             'data_assemblea' => 'date',
+            'started_at' => 'datetime',
+            'closed_at' => 'datetime',
             'generato_il' => 'datetime',
         ];
     }
@@ -33,5 +51,15 @@ class Assemblea extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(SocioVariation::class);
+    }
+
+    public function presenze(): HasMany
+    {
+        return $this->hasMany(AssembleaPresenza::class);
+    }
+
+    public function puntiOdg(): HasMany
+    {
+        return $this->hasMany(AssembleaPuntoOdg::class)->orderBy('ordine');
     }
 }
