@@ -19,8 +19,9 @@
         .site { page-break-inside: avoid; margin-bottom: 14px; border-left: 5px solid #f59e0b; padding-left: 10px; }
         .meta { color: #374151; font-size: 12px; }
         .label { color: #075985; font-weight: bold; }
-        .people { margin: 8px 0 0; padding: 0; }
-        .people li { list-style: none; margin: 0 0 5px; padding: 6px 8px; background: #eff6ff; color: #1e3a8a; font-weight: bold; border-radius: 4px; }
+        .people-table { margin-top: 8px; }
+        .people-table td { width: 50%; border: 0; padding: 4px 5px; }
+        .person-pill { display: block; padding: 6px 8px; background: #eff6ff; color: #1e3a8a; font-weight: bold; border-radius: 4px; }
         .absence-name { color: #7c2d12; font-weight: bold; }
     </style>
 </head>
@@ -77,11 +78,18 @@
 
             <p class="label">Persone assegnate</p>
             @if ($site->assignedSocios()->isNotEmpty())
-                <ul class="people">
-                    @foreach ($site->assignedSocios() as $socio)
-                        <li>{{ $socio->nome_completo }}</li>
+                <table class="people-table">
+                    @foreach ($site->assignedSocios()->chunk(2) as $row)
+                        <tr>
+                            @foreach ($row as $socio)
+                                <td><span class="person-pill">{{ $socio->nome_completo }}</span></td>
+                            @endforeach
+                            @if ($row->count() === 1)
+                                <td></td>
+                            @endif
+                        </tr>
                     @endforeach
-                </ul>
+                </table>
             @else
                 <p class="muted">Nessuna persona assegnata.</p>
             @endif
