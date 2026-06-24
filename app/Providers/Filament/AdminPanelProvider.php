@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Auth\Login;
 use App\Filament\Resources\Socios\SocioResource;
+use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Http\Middleware\RedirectToInitialAdminSetup;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -40,6 +41,10 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-users')
                     ->url(fn (): string => SocioResource::getUrl())
                     ->sort(20),
+                NavigationItem::make('Assegnazione lavoro')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->url(fn (): string => WorkOrderResource::getUrl())
+                    ->sort(30),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

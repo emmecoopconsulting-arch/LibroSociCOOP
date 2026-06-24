@@ -135,6 +135,16 @@ class Socio extends Model
         return $this->hasMany(SocioVariation::class);
     }
 
+    public function workSiteAssignments(): HasMany
+    {
+        return $this->hasMany(WorkSiteAssignment::class);
+    }
+
+    public function workAbsences(): HasMany
+    {
+        return $this->hasMany(WorkAbsence::class);
+    }
+
     public function changes(): HasMany
     {
         return $this->hasMany(SocioChange::class);

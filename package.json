@@ -1,6 +1,7 @@
 {
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
     "type": "module",
@@ -18,6 +19,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
   "name": "gestione-soci",
   "version": "1.0.0",
   "private": true,
@@ -30,6 +33,9 @@
   },
   "type": "module"
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
