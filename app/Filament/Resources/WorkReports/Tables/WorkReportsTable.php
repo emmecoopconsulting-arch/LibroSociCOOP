@@ -24,18 +24,21 @@ class WorkReportsTable
                     ->date('d/m/Y')
                     ->sortable(),
                 TextColumn::make('work_site_name')
-                    ->label('Cantiere')
+                    ->label('Cliente / cantiere')
                     ->state(fn ($record): string => $record->displaySiteName())
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('socio_ids')
+                    ->label('Operatori')
+                    ->state(fn ($record): string => $record->assignedSocios()
+                        ->map(fn ($socio): string => "{$socio->cognome} {$socio->nome}")
+                        ->join(', '))
+                    ->limit(60)
+                    ->toggleable(),
                 TextColumn::make('oggetto')
                     ->label('Oggetto')
                     ->searchable()
                     ->limit(60),
-                TextColumn::make('order.titolo')
-                    ->label('Ordine di servizio')
-                    ->limit(50)
-                    ->toggleable(),
             ])
             ->recordActions([
                 EditAction::make(),

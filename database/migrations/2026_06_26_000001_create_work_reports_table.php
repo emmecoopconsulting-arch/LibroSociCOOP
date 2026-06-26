@@ -16,8 +16,8 @@ return new class extends Migration
             $table->id();
             $table->string('protocollo', 30)->unique();
             $table->date('data_intervento');
-            $table->foreignId('work_order_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('work_site_id')->nullable()->constrained()->nullOnDelete();
+            $table->json('socio_ids')->nullable();
             $table->string('oggetto');
             $table->text('descrizione_lavoro')->nullable();
             $table->string('rapportino_path');
@@ -25,7 +25,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['data_intervento', 'work_site_id']);
-            $table->index('work_order_id');
         });
     }
 

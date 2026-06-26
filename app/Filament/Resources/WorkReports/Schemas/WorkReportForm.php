@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\WorkReports\Schemas;
 
-use App\Models\WorkOrder;
+use App\Models\Socio;
 use App\Models\WorkSite;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -23,9 +23,8 @@ class WorkReportForm
                     ->schema([
                         TextInput::make('protocollo')
                             ->label('Protocollo')
-                            ->placeholder('Generato automaticamente')
-                            ->disabled()
-                            ->dehydrated()
+                            ->required()
+                            ->maxLength(30)
                             ->unique(ignoreRecord: true),
                         DatePicker::make('data_intervento')
                             ->label('Data intervento')
@@ -35,22 +34,27 @@ class WorkReportForm
                 Section::make('Intervento e cantiere')
                     ->columns(2)
                     ->schema([
-                        Select::make('work_order_id')
-                            ->label('Ordine di servizio')
-                            ->options(fn (): array => WorkOrder::query()
-                                ->orderByDesc('data_servizio')
-                                ->limit(100)
+                        TextInput::make('work_site_name')
+                            ->label('Cliente / cantiere')
+                            ->datalist(fn (): array => WorkSite::labels())
+                            ->placeholder('Scrivi o scegli cliente / cantiere')
+                            ->required(),
+                        Select::make('socio_ids')
+                            ->label('Operatori che hanno svolto il servizio')
+                            ->options(fn (): array => Socio::query()
+                                ->attivi()
+                                ->where('tipologia', 'ordinario')
+                                ->orderBy('cognome')
+                                ->orderBy('nome')
                                 ->get()
-                                ->mapWithKeys(fn (WorkOrder $order): array => [
-                                    $order->id => $order->data_servizio?->format('d/m/Y').' - '.$order->titolo,
+                                ->mapWithKeys(fn (Socio $socio): array => [
+                                    $socio->id => "{$socio->cognome} {$socio->nome}",
                                 ])
                                 ->all())
+                            ->multiple()
                             ->searchable()
-                            ->preload(),
-                        TextInput::make('work_site_name')
-                            ->label('Cantiere')
-                            ->datalist(fn (): array => WorkSite::labels())
-                            ->placeholder('Scrivi o scegli un cantiere'),
+                            ->preload()
+                            ->required(),
                         TextInput::make('oggetto')
                             ->label('Oggetto')
                             ->required()

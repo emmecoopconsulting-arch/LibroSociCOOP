@@ -54,9 +54,13 @@ class WorkAssignmentTest extends TestCase
 
     public function test_work_report_can_use_free_text_site_without_creating_archive_site(): void
     {
+        $socio = $this->socio('Mario', 'Rossi', 'RSSMRA80A01H501U');
+
         $report = WorkReport::create([
+            'protocollo' => 'RI-2026-001',
             'data_intervento' => '2026-06-24',
             'work_site_name' => 'Cantiere mobile cliente occasionale',
+            'socio_ids' => [$socio->id],
             'oggetto' => 'Pulizia straordinaria',
             'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
         ]);
@@ -159,35 +163,28 @@ class WorkAssignmentTest extends TestCase
         Storage::disk('local')->assertExists($archived->pdf_path);
     }
 
-    public function test_work_report_gets_internal_protocol_and_can_reference_site(): void
+    public function test_work_report_uses_manual_protocol_and_tracks_operators(): void
     {
-        $order = WorkOrder::create([
-            'data_servizio' => '2026-06-24',
-            'titolo' => 'Ordine di servizio del 24/06/2026',
-        ]);
+        $socio = $this->socio('Paolo', 'Neri', 'NREPLA80A01H501D');
         $site = WorkSite::create([
             'nome' => 'Cantiere archivio',
             'luogo' => 'Novi Ligure',
         ]);
 
-        $first = WorkReport::create([
+        $report = WorkReport::create([
+            'protocollo' => 'RI-2026-010',
             'data_intervento' => '2026-06-24',
-            'work_order_id' => $order->id,
             'work_site_id' => $site->id,
+            'socio_ids' => [$socio->id],
             'oggetto' => 'Pulizia straordinaria',
             'descrizione_lavoro' => 'Intervento completato.',
             'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
         ]);
-        $second = WorkReport::create([
-            'data_intervento' => '2026-06-25',
-            'work_site_id' => $site->id,
-            'oggetto' => 'Ripasso area esterna',
-            'rapportino_path' => 'rapporti-interventi/rapportino-2.pdf',
-        ]);
 
-        $this->assertSame('RINT-2026-0001', $first->protocollo);
-        $this->assertSame('RINT-2026-0002', $second->protocollo);
-        $this->assertTrue($site->reports()->whereKey($first)->exists());
+        $this->assertSame('RI-2026-010', $report->protocollo);
+        $this->assertSame([$socio->id], $report->socio_ids);
+        $this->assertTrue($site->reports()->whereKey($report)->exists());
+        $this->assertTrue($report->assignedSocios()->contains($socio));
     }
 
     public function test_socio_can_have_multiple_archived_documents(): void
