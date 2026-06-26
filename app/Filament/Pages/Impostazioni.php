@@ -113,18 +113,7 @@ class Impostazioni extends Page
 
     public function save(): void
     {
-        $data = $this->form->getState();
-
-        AppSetting::setValue(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS, (int) $data['permesso_soggiorno_alert_days']);
-        AppSetting::setValue(AppSetting::VISITA_MEDICA_ALERT_DAYS, (int) $data['visita_medica_alert_days']);
-        AppSetting::setValue(AppSetting::MANSIONI, $this->sanitizeMansioni($data['mansioni'] ?? []));
-        AppSetting::setValue(AppSetting::S3_ARCHIVE_ENABLED, (bool) ($data['s3_archive_enabled'] ?? false));
-        AppSetting::setValue(AppSetting::S3_ACCESS_KEY_ID, $this->nullableString($data['s3_access_key_id'] ?? null));
-        AppSetting::setS3SecretAccessKey($this->nullableString($data['s3_secret_access_key'] ?? null));
-        AppSetting::setValue(AppSetting::S3_DEFAULT_REGION, $this->nullableString($data['s3_default_region'] ?? null));
-        AppSetting::setValue(AppSetting::S3_BUCKET, $this->nullableString($data['s3_bucket'] ?? null));
-        AppSetting::setValue(AppSetting::S3_ENDPOINT, $this->nullableString($data['s3_endpoint'] ?? null));
-        AppSetting::setValue(AppSetting::S3_USE_PATH_STYLE_ENDPOINT, (bool) ($data['s3_use_path_style_endpoint'] ?? false));
+        $this->saveSettings();
 
         Notification::make()
             ->title('Impostazioni salvate')
@@ -177,6 +166,8 @@ class Impostazioni extends Page
 
     public function syncS3(S3ArchiveService $archiveService): void
     {
+        $this->saveSettings();
+
         $result = $archiveService->syncExistingArchive();
 
         if (! $result['enabled']) {
@@ -211,6 +202,8 @@ class Impostazioni extends Page
 
     public function testS3(S3ArchiveService $archiveService): void
     {
+        $this->saveSettings();
+
         $result = $archiveService->testConnection();
 
         if ($result['ok']) {
@@ -238,5 +231,21 @@ class Impostazioni extends Page
     public static function shouldRegisterNavigation(): bool
     {
         return static::canAccess();
+    }
+
+    private function saveSettings(): void
+    {
+        $data = $this->form->getState();
+
+        AppSetting::setValue(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS, (int) $data['permesso_soggiorno_alert_days']);
+        AppSetting::setValue(AppSetting::VISITA_MEDICA_ALERT_DAYS, (int) $data['visita_medica_alert_days']);
+        AppSetting::setValue(AppSetting::MANSIONI, $this->sanitizeMansioni($data['mansioni'] ?? []));
+        AppSetting::setValue(AppSetting::S3_ARCHIVE_ENABLED, (bool) ($data['s3_archive_enabled'] ?? false));
+        AppSetting::setValue(AppSetting::S3_ACCESS_KEY_ID, $this->nullableString($data['s3_access_key_id'] ?? null));
+        AppSetting::setS3SecretAccessKey($this->nullableString($data['s3_secret_access_key'] ?? null));
+        AppSetting::setValue(AppSetting::S3_DEFAULT_REGION, $this->nullableString($data['s3_default_region'] ?? null));
+        AppSetting::setValue(AppSetting::S3_BUCKET, $this->nullableString($data['s3_bucket'] ?? null));
+        AppSetting::setValue(AppSetting::S3_ENDPOINT, $this->nullableString($data['s3_endpoint'] ?? null));
+        AppSetting::setValue(AppSetting::S3_USE_PATH_STYLE_ENDPOINT, (bool) ($data['s3_use_path_style_endpoint'] ?? false));
     }
 }

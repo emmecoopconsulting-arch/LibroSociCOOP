@@ -58,7 +58,7 @@ class VisitsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->defaultSort('socio.cognome')
+            ->defaultSort('id')
             ->columns([
                 TextColumn::make('socio.codice_socio')
                     ->label('Codice socio')
