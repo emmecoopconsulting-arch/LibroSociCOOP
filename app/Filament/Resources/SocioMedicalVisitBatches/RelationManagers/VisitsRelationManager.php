@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SocioMedicalVisitBatches\RelationManagers;
 
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -13,6 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 class VisitsRelationManager extends RelationManager
 {
@@ -80,6 +82,12 @@ class VisitsRelationManager extends RelationManager
                     ->state(fn ($record): bool => filled($record->pdf_path)),
             ])
             ->recordActions([
+                Action::make('downloadPdf')
+                    ->label('Scarica PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->url(fn ($record): string => route('visite-mediche.download', $record))
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record): bool => filled($record->pdf_path) && Storage::disk('local')->exists($record->pdf_path)),
                 EditAction::make(),
             ]);
     }

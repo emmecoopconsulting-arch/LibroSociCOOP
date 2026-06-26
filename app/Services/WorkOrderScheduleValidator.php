@@ -98,7 +98,7 @@ class WorkOrderScheduleValidator
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'socio_ids' => "{$socioName} e gia assegnato a {$conflict->site?->nome} nello stesso orario.",
+                'socio_ids' => "{$socioName} e gia assegnato a {$conflict->displaySiteName()} nello stesso orario.",
             ]);
         }
     }

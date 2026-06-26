@@ -13,6 +13,34 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class WorkSite extends Model
 {
+    public function getDisplayNameAttribute(): string
+    {
+        return filled($this->luogo) ? "{$this->nome} - {$this->luogo}" : $this->nome;
+    }
+
+    public static function labels(): array
+    {
+        return static::query()
+            ->orderBy('nome')
+            ->get()
+            ->map(fn (WorkSite $site): string => $site->display_name)
+            ->all();
+    }
+
+    public static function idForLabel(?string $label): ?int
+    {
+        $label = trim((string) $label);
+
+        if ($label === '') {
+            return null;
+        }
+
+        return static::query()
+            ->get()
+            ->first(fn (WorkSite $site): bool => $site->display_name === $label || $site->nome === $label)
+            ?->id;
+    }
+
     public function orderSites(): HasMany
     {
         return $this->hasMany(WorkOrderSite::class);

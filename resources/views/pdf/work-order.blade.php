@@ -39,12 +39,18 @@
     <h2>Cantieri di lavoro</h2>
     @forelse ($order->sites as $site)
         <div class="site">
-            <h3>{{ $site->site?->nome }}</h3>
+            <h3>{{ $site->displaySiteName() }}</h3>
             <table>
                 <tbody>
                     <tr>
                         <th style="width: 18%;">Luogo</th>
-                        <td>{{ $site->site?->luogo }}</td>
+                        <td>
+                            @if ($site->site?->luogo)
+                                {{ $site->site->luogo }}
+                            @else
+                                <span class="muted">Non indicato</span>
+                            @endif
+                        </td>
                         <th style="width: 18%;">Orario</th>
                         <td>
                             @if ($site->orario_inizio || $site->orario_fine)

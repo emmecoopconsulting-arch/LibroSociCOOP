@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 #[Fillable([
     'work_order_id',
     'work_site_id',
+    'work_site_name',
     'work_vehicle_id',
     'socio_ids',
     'orario_inizio',
@@ -23,6 +24,8 @@ class WorkOrderSite extends Model
     protected static function booted(): void
     {
         static::saving(function (WorkOrderSite $site): void {
+            $site->syncWorkSiteReference();
+
             app(WorkOrderScheduleValidator::class)->validateOrderSite($site);
         });
     }
@@ -61,5 +64,22 @@ class WorkOrderSite extends Model
             ->orderBy('cognome')
             ->orderBy('nome')
             ->get();
+    }
+
+    public function displaySiteName(): string
+    {
+        return $this->work_site_name ?: ($this->site?->display_name ?? '');
+    }
+
+    private function syncWorkSiteReference(): void
+    {
+        if (blank($this->work_site_name) && $this->work_site_id) {
+            $this->work_site_name = $this->site?->display_name ?? WorkSite::query()->find($this->work_site_id)?->display_name;
+        }
+
+        if (filled($this->work_site_name)) {
+            $this->work_site_name = trim((string) $this->work_site_name);
+            $this->work_site_id = WorkSite::idForLabel($this->work_site_name);
+        }
     }
 }

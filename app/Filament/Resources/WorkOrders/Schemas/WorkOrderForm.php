@@ -57,17 +57,10 @@ class WorkOrderForm
                             ->addActionLabel('Aggiungi cantiere')
                             ->columns(2)
                             ->schema([
-                                Select::make('work_site_id')
+                                TextInput::make('work_site_name')
                                     ->label('Cantiere')
-                                    ->options(fn (): array => WorkSite::query()
-                                        ->orderBy('nome')
-                                        ->get()
-                                        ->mapWithKeys(fn (WorkSite $site): array => [
-                                            $site->id => "{$site->nome} - {$site->luogo}",
-                                        ])
-                                        ->all())
-                                    ->searchable()
-                                    ->preload()
+                                    ->datalist(fn (): array => WorkSite::labels())
+                                    ->placeholder('Scrivi o scegli un cantiere')
                                     ->required(),
                                 TextInput::make('orario_inizio')
                                     ->label('Ora inizio')

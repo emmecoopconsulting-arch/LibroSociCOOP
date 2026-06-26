@@ -23,8 +23,9 @@ class WorkReportsTable
                     ->label('Data')
                     ->date('d/m/Y')
                     ->sortable(),
-                TextColumn::make('site.nome')
+                TextColumn::make('work_site_name')
                     ->label('Cantiere')
+                    ->state(fn ($record): string => $record->displaySiteName())
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('oggetto')

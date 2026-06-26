@@ -14,6 +14,7 @@ use App\Models\Comune;
 use App\Models\DocumentHeaderSetting;
 use App\Models\Socio;
 use App\Models\SocioChange;
+use App\Models\SocioMedicalVisit;
 use App\Models\SocioWorkContract;
 use App\Models\User;
 use App\Models\Verbale;
@@ -736,6 +737,39 @@ class LibroSociTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('exports.libro-soci.excel'))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
+    public function test_medical_visit_pdf_is_downloadable_via_http_route(): void
+    {
+        Storage::fake('local');
+
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $socio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-05-25',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        Storage::disk('local')->put('visite-mediche/mario.pdf', '%PDF-1.4 test');
+
+        $visit = SocioMedicalVisit::create([
+            'socio_id' => $socio->id,
+            'data_visita' => '2026-06-26',
+            'scadenza' => '2027-06-26',
+            'pdf_path' => 'visite-mediche/mario.pdf',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('visite-mediche.download', $visit))
             ->assertOk()
             ->assertHeader('content-disposition');
     }

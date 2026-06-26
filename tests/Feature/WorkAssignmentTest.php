@@ -34,6 +34,59 @@ class WorkAssignmentTest extends TestCase
         $this->assertDatabaseCount('work_order_sites', 2);
     }
 
+    public function test_order_site_can_use_free_text_site_without_creating_archive_site(): void
+    {
+        $order = WorkOrder::create([
+            'data_servizio' => '2026-06-24',
+            'titolo' => 'Ordine di servizio del 24/06/2026',
+        ]);
+
+        $site = WorkOrderSite::create([
+            'work_order_id' => $order->id,
+            'work_site_name' => 'Cantiere temporaneo via Roma',
+            'orario_inizio' => '08:00',
+        ]);
+
+        $this->assertNull($site->work_site_id);
+        $this->assertSame('Cantiere temporaneo via Roma', $site->work_site_name);
+        $this->assertDatabaseCount('work_sites', 0);
+    }
+
+    public function test_work_report_can_use_free_text_site_without_creating_archive_site(): void
+    {
+        $report = WorkReport::create([
+            'data_intervento' => '2026-06-24',
+            'work_site_name' => 'Cantiere mobile cliente occasionale',
+            'oggetto' => 'Pulizia straordinaria',
+            'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
+        ]);
+
+        $this->assertNull($report->work_site_id);
+        $this->assertSame('Cantiere mobile cliente occasionale', $report->work_site_name);
+        $this->assertDatabaseCount('work_sites', 0);
+    }
+
+    public function test_free_text_site_matching_archive_label_keeps_archive_reference(): void
+    {
+        $archiveSite = WorkSite::create([
+            'nome' => 'Cantiere archivio',
+            'luogo' => 'Novi Ligure',
+        ]);
+        $order = WorkOrder::create([
+            'data_servizio' => '2026-06-24',
+            'titolo' => 'Ordine di servizio del 24/06/2026',
+        ]);
+
+        $site = WorkOrderSite::create([
+            'work_order_id' => $order->id,
+            'work_site_name' => 'Cantiere archivio - Novi Ligure',
+            'orario_inizio' => '08:00',
+        ]);
+
+        $this->assertSame($archiveSite->id, $site->work_site_id);
+        $this->assertDatabaseCount('work_sites', 1);
+    }
+
     public function test_worker_cannot_be_assigned_to_overlapping_sites_in_same_order(): void
     {
         $socio = $this->socio('Luigi', 'Bianchi', 'BNCLGU80A01H501V');
