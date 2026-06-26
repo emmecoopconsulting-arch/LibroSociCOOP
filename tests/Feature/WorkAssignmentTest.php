@@ -52,7 +52,7 @@ class WorkAssignmentTest extends TestCase
         $this->assertDatabaseCount('work_sites', 0);
     }
 
-    public function test_work_report_can_use_free_text_site_without_creating_archive_site(): void
+    public function test_work_report_creates_archive_site_from_free_text_site(): void
     {
         $socio = $this->socio('Mario', 'Rossi', 'RSSMRA80A01H501U');
 
@@ -60,14 +60,19 @@ class WorkAssignmentTest extends TestCase
             'protocollo' => 'RI-2026-001',
             'data_intervento' => '2026-06-24',
             'work_site_name' => 'Cantiere mobile cliente occasionale',
-            'socio_ids' => [$socio->id],
+            'operator_hours' => [
+                ['socio_id' => $socio->id, 'hours' => 3.5],
+            ],
             'oggetto' => 'Pulizia straordinaria',
             'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
         ]);
 
-        $this->assertNull($report->work_site_id);
+        $this->assertNotNull($report->work_site_id);
         $this->assertSame('Cantiere mobile cliente occasionale', $report->work_site_name);
-        $this->assertDatabaseCount('work_sites', 0);
+        $this->assertDatabaseHas('work_sites', [
+            'id' => $report->work_site_id,
+            'nome' => 'Cantiere mobile cliente occasionale',
+        ]);
     }
 
     public function test_free_text_site_matching_archive_label_keeps_archive_reference(): void
@@ -175,7 +180,9 @@ class WorkAssignmentTest extends TestCase
             'protocollo' => 'RI-2026-010',
             'data_intervento' => '2026-06-24',
             'work_site_id' => $site->id,
-            'socio_ids' => [$socio->id],
+            'operator_hours' => [
+                ['socio_id' => $socio->id, 'hours' => 4],
+            ],
             'oggetto' => 'Pulizia straordinaria',
             'descrizione_lavoro' => 'Intervento completato.',
             'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
@@ -183,8 +190,33 @@ class WorkAssignmentTest extends TestCase
 
         $this->assertSame('RI-2026-010', $report->protocollo);
         $this->assertSame([$socio->id], $report->socio_ids);
+        $this->assertSame('4.00', $report->total_hours);
         $this->assertTrue($site->reports()->whereKey($report)->exists());
         $this->assertTrue($report->assignedSocios()->contains($socio));
+    }
+
+    public function test_work_report_sums_operator_hours(): void
+    {
+        $firstSocio = $this->socio('Paolo', 'Neri', 'NREPLA80A01H501D');
+        $secondSocio = $this->socio('Carla', 'Gialli', 'GLLCRL80A41H501F');
+
+        $report = WorkReport::create([
+            'protocollo' => 'RI-2026-011',
+            'data_intervento' => '2026-06-24',
+            'work_site_name' => 'Cliente ore multiple',
+            'operator_hours' => [
+                ['socio_id' => $firstSocio->id, 'hours' => 2.5],
+                ['socio_id' => $secondSocio->id, 'hours' => 3.75],
+            ],
+            'oggetto' => 'Pulizia ordinaria',
+            'rapportino_path' => 'rapporti-interventi/rapportino-2.pdf',
+        ]);
+
+        $this->assertSame([$firstSocio->id, $secondSocio->id], $report->socio_ids);
+        $this->assertSame('6.25', $report->total_hours);
+        $this->assertDatabaseHas('work_sites', [
+            'nome' => 'Cliente ore multiple',
+        ]);
     }
 
     public function test_socio_can_have_multiple_archived_documents(): void

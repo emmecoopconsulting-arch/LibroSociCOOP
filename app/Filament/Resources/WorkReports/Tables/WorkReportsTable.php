@@ -33,11 +33,15 @@ class WorkReportsTable
                     ->sortable(),
                 TextColumn::make('socio_ids')
                     ->label('Operatori')
-                    ->state(fn ($record): string => $record->assignedSocios()
-                        ->map(fn ($socio): string => "{$socio->cognome} {$socio->nome}")
+                    ->state(fn ($record): string => $record->operatorHoursBySocio()
+                        ->map(fn (array $row): string => "{$row['socio']->cognome} {$row['socio']->nome} ({$row['hours']} ore)")
                         ->join(', '))
                     ->limit(60)
                     ->toggleable(),
+                TextColumn::make('total_hours')
+                    ->label('Totale ore')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable(),
                 TextColumn::make('oggetto')
                     ->label('Oggetto')
                     ->searchable()

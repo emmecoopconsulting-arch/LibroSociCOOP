@@ -16,4 +16,20 @@ class EditWorkReport extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        if (blank($data['operator_hours'] ?? null) && filled($data['socio_ids'] ?? null)) {
+            $data['operator_hours'] = collect($data['socio_ids'])
+                ->filter()
+                ->map(fn ($socioId): array => [
+                    'socio_id' => (int) $socioId,
+                    'hours' => 0,
+                ])
+                ->values()
+                ->all();
+        }
+
+        return $data;
+    }
 }

@@ -41,6 +41,28 @@ class WorkSite extends Model
             ?->id;
     }
 
+    public static function findOrCreateForLabel(?string $label): ?self
+    {
+        $label = trim((string) $label);
+
+        if ($label === '') {
+            return null;
+        }
+
+        $existing = static::query()
+            ->get()
+            ->first(fn (WorkSite $site): bool => $site->display_name === $label || $site->nome === $label);
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return static::query()->create([
+            'nome' => $label,
+            'luogo' => '',
+        ]);
+    }
+
     public function orderSites(): HasMany
     {
         return $this->hasMany(WorkOrderSite::class);
