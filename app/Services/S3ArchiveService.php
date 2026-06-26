@@ -16,71 +16,49 @@ class S3ArchiveService
 {
     public function archiveWorkOrderPdf(WorkOrder $order, string $localPath, ?string $contents = null): bool
     {
-        $date = $order->data_servizio ?? now();
-
-        return $this->archive(
-            $localPath,
-            sprintf('ODS/%s/%s/%s', $date->format('Y'), $date->format('m'), basename($localPath)),
-            $contents,
-        );
+        return $this->archive($localPath, $this->workOrderS3Path($order, $localPath), $contents);
     }
 
     public function archiveSocioLocalFile(Socio $socio, string $section, string $localPath, ?string $contents = null): bool
     {
-        return $this->archive(
-            $localPath,
-            sprintf(
-                'SOCI/%s/%s/%s/%s',
-                $socio->stato === 'attivo' ? 'Attivi' : 'Archiviati',
-                $this->socioFolder($socio),
-                $this->folder($section),
-                basename($localPath),
-            ),
-            $contents,
-        );
+        return $this->archive($localPath, $this->socioS3Path($socio, $section, $localPath), $contents);
     }
 
     public function archiveWorkReportAttachment(WorkReport $report): bool
     {
-        $date = $report->data_intervento ?? now();
-
-        return $this->archive(
-            $report->rapportino_path,
-            sprintf(
-                'RAPPORTI_INTERVENTI/%s/%s/%s/%s',
-                $date->format('Y'),
-                $date->format('m'),
-                $this->folder($report->protocollo ?: 'senza-protocollo'),
-                basename($report->rapportino_path),
-            ),
-        );
+        return $this->archive($report->rapportino_path, $this->workReportS3Path($report));
     }
 
-    public function syncExistingArchive(): int
+    /**
+     * @return array{enabled: bool, checked: int, missing: int, uploaded: int, already_present: int, local_missing: int, failed: int}
+     */
+    public function syncExistingArchive(): array
     {
+        $result = $this->emptySyncResult();
+
         if (! $this->enabled()) {
-            return 0;
+            return $result;
         }
 
-        $count = 0;
+        $result['enabled'] = true;
 
         Socio::query()
             ->with(['documents', 'verbales'])
-            ->chunkById(100, function ($soci) use (&$count): void {
+            ->chunkById(100, function ($soci) use (&$result): void {
                 foreach ($soci as $socio) {
-                    if (filled($socio->verbale_cda_path) && $this->archiveSocioLocalFile($socio, 'verbali-cda', $socio->verbale_cda_path)) {
-                        $count++;
+                    if (filled($socio->verbale_cda_path)) {
+                        $this->syncLocalToS3($socio->verbale_cda_path, $this->socioS3Path($socio, 'verbali-cda', $socio->verbale_cda_path), $result);
                     }
 
                     foreach ($socio->documents as $document) {
-                        if (filled($document->file_path) && $this->archiveSocioLocalFile($socio, 'documenti', $document->file_path)) {
-                            $count++;
+                        if (filled($document->file_path)) {
+                            $this->syncLocalToS3($document->file_path, $this->socioS3Path($socio, 'documenti', $document->file_path), $result);
                         }
                     }
 
                     foreach ($socio->verbales as $verbale) {
-                        if (filled($verbale->file_path) && $this->archiveVerbale($verbale)) {
-                            $count++;
+                        if (filled($verbale->file_path)) {
+                            $this->syncLocalToS3($verbale->file_path, $this->socioS3Path($socio, 'verbali', $verbale->file_path), $result);
                         }
                     }
                 }
@@ -88,25 +66,21 @@ class S3ArchiveService
 
         WorkOrder::query()
             ->whereNotNull('pdf_path')
-            ->chunkById(100, function ($orders) use (&$count): void {
+            ->chunkById(100, function ($orders) use (&$result): void {
                 foreach ($orders as $order) {
-                    if ($this->archiveWorkOrderPdf($order, $order->pdf_path)) {
-                        $count++;
-                    }
+                    $this->syncLocalToS3($order->pdf_path, $this->workOrderS3Path($order, $order->pdf_path), $result);
                 }
             });
 
         WorkReport::query()
             ->whereNotNull('rapportino_path')
-            ->chunkById(100, function ($reports) use (&$count): void {
+            ->chunkById(100, function ($reports) use (&$result): void {
                 foreach ($reports as $report) {
-                    if ($this->archiveWorkReportAttachment($report)) {
-                        $count++;
-                    }
+                    $this->syncLocalToS3($report->rapportino_path, $this->workReportS3Path($report), $result);
                 }
             });
 
-        return $count;
+        return $result;
     }
 
     private function archiveVerbale(Verbale $verbale): bool
@@ -154,6 +128,89 @@ class S3ArchiveService
 
             return false;
         }
+    }
+
+    /**
+     * @param  array{enabled: bool, checked: int, missing: int, uploaded: int, already_present: int, local_missing: int, failed: int}  $result
+     */
+    private function syncLocalToS3(string $localPath, string $s3Path, array &$result): void
+    {
+        $result['checked']++;
+
+        try {
+            if (! Storage::disk('local')->exists($localPath)) {
+                $result['local_missing']++;
+
+                return;
+            }
+
+            $disk = $this->disk();
+
+            if ($disk->exists($s3Path)) {
+                $result['already_present']++;
+
+                return;
+            }
+
+            $result['missing']++;
+            $disk->put($s3Path, Storage::disk('local')->get($localPath));
+            $result['uploaded']++;
+        } catch (\Throwable $exception) {
+            $result['failed']++;
+
+            Log::warning('Verifica/sincronizzazione S3 non riuscita.', [
+                'local_path' => $localPath,
+                's3_path' => $s3Path,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array{enabled: bool, checked: int, missing: int, uploaded: int, already_present: int, local_missing: int, failed: int}
+     */
+    private function emptySyncResult(): array
+    {
+        return [
+            'enabled' => false,
+            'checked' => 0,
+            'missing' => 0,
+            'uploaded' => 0,
+            'already_present' => 0,
+            'local_missing' => 0,
+            'failed' => 0,
+        ];
+    }
+
+    private function workOrderS3Path(WorkOrder $order, string $localPath): string
+    {
+        $date = $order->data_servizio ?? now();
+
+        return sprintf('ODS/%s/%s/%s', $date->format('Y'), $date->format('m'), basename($localPath));
+    }
+
+    private function socioS3Path(Socio $socio, string $section, string $localPath): string
+    {
+        return sprintf(
+            'SOCI/%s/%s/%s/%s',
+            $socio->stato === 'attivo' ? 'Attivi' : 'Archiviati',
+            $this->socioFolder($socio),
+            $this->folder($section),
+            basename($localPath),
+        );
+    }
+
+    private function workReportS3Path(WorkReport $report): string
+    {
+        $date = $report->data_intervento ?? now();
+
+        return sprintf(
+            'RAPPORTI_INTERVENTI/%s/%s/%s/%s',
+            $date->format('Y'),
+            $date->format('m'),
+            $this->folder($report->protocollo ?: 'senza-protocollo'),
+            basename($report->rapportino_path),
+        );
     }
 
     private function disk(): Filesystem

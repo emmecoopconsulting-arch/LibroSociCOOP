@@ -174,13 +174,36 @@ class Impostazioni extends Page
 
     public function syncS3(S3ArchiveService $archiveService): void
     {
-        $count = $archiveService->syncExistingArchive();
+        $result = $archiveService->syncExistingArchive();
 
-        Notification::make()
+        if (! $result['enabled']) {
+            Notification::make()
+                ->title('Archivio S3 non configurato')
+                ->body('Attiva S3 e verifica bucket, regione, access key e secret key.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $notification = Notification::make()
             ->title('Sincronizzazione S3 completata')
-            ->body("File archiviati: {$count}")
-            ->success()
-            ->send();
+            ->body(sprintf(
+                'Controllati: %d. Gia presenti: %d. Mancanti caricati: %d. File locali mancanti: %d. Errori: %d.',
+                $result['checked'],
+                $result['already_present'],
+                $result['uploaded'],
+                $result['local_missing'],
+                $result['failed'],
+            ));
+
+        if ($result['failed'] > 0) {
+            $notification->warning();
+        } else {
+            $notification->success();
+        }
+
+        $notification->send();
     }
 
     public static function canAccess(): bool
