@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Socio;
 use App\Models\SocioMedicalVisit;
+use App\Models\SocioMedicalVisitBatch;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -123,10 +124,15 @@ class VisiteMediche extends Page
     {
         $data = $this->form->getState();
         $dataVisita = CarbonImmutable::parse($data['data_visita']);
+        $batch = SocioMedicalVisitBatch::create([
+            'data_visita' => $dataVisita,
+            'note' => $data['note'] ?? null,
+        ]);
         $visits = [];
 
         foreach ($data['socio_ids'] as $socioId) {
             $visit = SocioMedicalVisit::create([
+                'batch_id' => $batch->id,
                 'socio_id' => $socioId,
                 'data_visita' => $dataVisita,
                 'scadenza' => $dataVisita->addYear(),

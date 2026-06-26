@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
+    'batch_id',
     'socio_id',
     'data_visita',
     'scadenza',
@@ -40,6 +41,11 @@ class SocioMedicalVisit extends Model
     public function socio(): BelongsTo
     {
         return $this->belongsTo(Socio::class);
+    }
+
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(SocioMedicalVisitBatch::class, 'batch_id');
     }
 
     private function archivePdfOnS3(): void

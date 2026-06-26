@@ -113,6 +113,10 @@ class LibroSociTest extends TestCase
             ->assertOk();
 
         $this->actingAs($admin)
+            ->get('/admin/socio-medical-visit-batches')
+            ->assertOk();
+
+        $this->actingAs($admin)
             ->get('/admin/socio-variations')
             ->assertOk();
     }
@@ -159,6 +163,7 @@ class LibroSociTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseCount('socio_medical_visits', 2);
+        $this->assertDatabaseCount('socio_medical_visit_batches', 1);
         $this->assertDatabaseHas('socio_medical_visits', [
             'socio_id' => $firstSocio->id,
             'pdf_path' => 'visite-mediche/mario.pdf',
