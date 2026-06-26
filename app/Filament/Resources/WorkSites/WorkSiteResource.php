@@ -26,7 +26,7 @@ class WorkSiteResource extends Resource
 
     protected static ?string $navigationLabel = 'Cantieri di lavoro';
 
-    protected static ?string $navigationParentItem = 'Assegnazione lavoro';
+    protected static ?string $navigationParentItem = 'Gestione Lavori';
 
     protected static ?int $navigationSort = 32;
 

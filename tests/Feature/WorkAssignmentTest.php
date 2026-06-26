@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Socio;
+use App\Models\SocioDocument;
 use App\Models\WorkAbsence;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderSite;
+use App\Models\WorkReport;
 use App\Models\WorkSite;
 use App\Models\WorkVehicle;
 use App\Services\WorkOrderPdfService;
@@ -102,6 +104,62 @@ class WorkAssignmentTest extends TestCase
         $this->assertSame('archiviato', $archived->stato);
         $this->assertNotNull($archived->archiviato_il);
         Storage::disk('local')->assertExists($archived->pdf_path);
+    }
+
+    public function test_work_report_gets_internal_protocol_and_can_reference_site(): void
+    {
+        $order = WorkOrder::create([
+            'data_servizio' => '2026-06-24',
+            'titolo' => 'Ordine di servizio del 24/06/2026',
+        ]);
+        $site = WorkSite::create([
+            'nome' => 'Cantiere archivio',
+            'luogo' => 'Novi Ligure',
+        ]);
+
+        $first = WorkReport::create([
+            'data_intervento' => '2026-06-24',
+            'work_order_id' => $order->id,
+            'work_site_id' => $site->id,
+            'oggetto' => 'Pulizia straordinaria',
+            'descrizione_lavoro' => 'Intervento completato.',
+            'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
+        ]);
+        $second = WorkReport::create([
+            'data_intervento' => '2026-06-25',
+            'work_site_id' => $site->id,
+            'oggetto' => 'Ripasso area esterna',
+            'rapportino_path' => 'rapporti-interventi/rapportino-2.pdf',
+        ]);
+
+        $this->assertSame('RINT-2026-0001', $first->protocollo);
+        $this->assertSame('RINT-2026-0002', $second->protocollo);
+        $this->assertTrue($site->reports()->whereKey($first)->exists());
+    }
+
+    public function test_socio_can_have_multiple_archived_documents(): void
+    {
+        $socio = $this->socio('Carla', 'Gialli', 'GLLCRL80A41H501F');
+
+        SocioDocument::create([
+            'socio_id' => $socio->id,
+            'tipo' => 'cie',
+            'numero_documento' => 'CA12345AA',
+            'data_scadenza' => '2030-01-31',
+            'file_path' => 'documenti-soci/cie.pdf',
+        ]);
+        SocioDocument::create([
+            'socio_id' => $socio->id,
+            'tipo' => 'codice_fiscale',
+            'file_path' => 'documenti-soci/codice-fiscale.pdf',
+        ]);
+
+        $this->assertCount(2, $socio->documents);
+        $this->assertDatabaseHas('socio_documents', [
+            'socio_id' => $socio->id,
+            'tipo' => 'cie',
+            'numero_documento' => 'CA12345AA',
+        ]);
     }
 
     private function socio(string $nome, string $cognome, string $codiceFiscale): Socio

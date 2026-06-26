@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\CodiceFiscaleParser;
+use App\Services\S3ArchiveService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -92,6 +93,12 @@ class Socio extends Model
             app(CodiceFiscaleParser::class)->applyToSocio($socio);
         });
 
+        static::created(function (Socio $socio): void {
+            if (filled($socio->verbale_cda_path)) {
+                app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'verbali-cda', $socio->verbale_cda_path);
+            }
+        });
+
         static::updating(function (Socio $socio): void {
             $socio->codice_fiscale = strtoupper((string) $socio->codice_fiscale);
             $socio->normalizeDerivedFields();
@@ -110,6 +117,10 @@ class Socio extends Model
                     'old_value' => $socio->getOriginal($field),
                     'new_value' => $newValue,
                 ]);
+            }
+
+            if ($socio->wasChanged('verbale_cda_path') && filled($socio->verbale_cda_path)) {
+                app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'verbali-cda', $socio->verbale_cda_path);
             }
         });
     }
@@ -137,6 +148,11 @@ class Socio extends Model
     public function medicalVisits(): HasMany
     {
         return $this->hasMany(SocioMedicalVisit::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(SocioDocument::class);
     }
 
     public function variations(): HasMany

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\Impostazioni;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
@@ -22,9 +23,11 @@ class SecurityResourcesTest extends TestCase
 
         $this->assertTrue(UserResource::canViewAny());
         $this->assertTrue(AuditLogResource::canViewAny());
+        $this->assertTrue(Impostazioni::canAccess());
 
         $this->get('/admin/users')->assertOk();
         $this->get('/admin/audit-logs')->assertOk();
+        $this->get('/admin/impostazioni')->assertOk();
     }
 
     public function test_security_resources_are_hidden_from_operators(): void
@@ -35,9 +38,11 @@ class SecurityResourcesTest extends TestCase
 
         $this->assertFalse(UserResource::canViewAny());
         $this->assertFalse(AuditLogResource::canViewAny());
+        $this->assertFalse(Impostazioni::canAccess());
 
         $this->get('/admin/users')->assertForbidden();
         $this->get('/admin/audit-logs')->assertForbidden();
+        $this->get('/admin/impostazioni')->assertForbidden();
     }
 
     public function test_user_changes_are_written_to_audit_log(): void

@@ -17,4 +17,9 @@ class WorkSite extends Model
     {
         return $this->hasMany(WorkOrderSite::class);
     }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(WorkReport::class);
+    }
 }

@@ -26,7 +26,7 @@ class WorkAbsenceResource extends Resource
 
     protected static ?string $navigationLabel = 'Assenze';
 
-    protected static ?string $navigationParentItem = 'Assegnazione lavoro';
+    protected static ?string $navigationParentItem = 'Gestione Lavori';
 
     protected static ?int $navigationSort = 34;
 

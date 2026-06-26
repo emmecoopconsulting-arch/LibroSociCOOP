@@ -10,7 +10,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkOrderPdfService
 {
-    public function __construct(private readonly PdfPageNumberService $pageNumberService) {}
+    public function __construct(
+        private readonly PdfPageNumberService $pageNumberService,
+        private readonly S3ArchiveService $s3ArchiveService,
+    ) {}
 
     public function generate(WorkOrder $order, bool $archive = false): WorkOrder
     {
@@ -32,7 +35,10 @@ class WorkOrderPdfService
             $order->id,
         );
 
-        Storage::disk('local')->put($path, $pdf->output());
+        $contents = $pdf->output();
+
+        Storage::disk('local')->put($path, $contents);
+        $this->s3ArchiveService->archiveWorkOrderPdf($order, $path, $contents);
 
         $order->update([
             'stato' => $archive ? 'archiviato' : $order->stato,

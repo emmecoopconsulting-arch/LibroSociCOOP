@@ -15,6 +15,7 @@ class VerbalePdfService
     public function __construct(
         private readonly PdfPageNumberService $pageNumberService,
         private readonly VerbaleTemplateService $templateService,
+        private readonly S3ArchiveService $s3ArchiveService,
     ) {}
 
     public function ensureAdmissionVerbale(Socio $socio): Verbale
@@ -45,7 +46,10 @@ class VerbalePdfService
         ]));
 
         $path = sprintf('verbali/%s/verbale-%s.pdf', now()->format('Y'), str($socio->codice_socio)->slug());
-        Storage::disk('local')->put($path, $pdf->output());
+        $contents = $pdf->output();
+
+        Storage::disk('local')->put($path, $contents);
+        $this->s3ArchiveService->archiveSocioLocalFile($socio, 'verbali', $path, $contents);
 
         $verbale->update([
             'stato' => 'generato',
@@ -97,7 +101,10 @@ class VerbalePdfService
             $verbale->id,
         );
 
-        Storage::disk('local')->put($path, $pdf->output());
+        $contents = $pdf->output();
+
+        Storage::disk('local')->put($path, $contents);
+        $this->s3ArchiveService->archiveSocioLocalFile($verbale->socio, 'verbali', $path, $contents);
 
         $verbale->update([
             'stato' => 'generato',

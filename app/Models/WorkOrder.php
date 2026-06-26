@@ -38,4 +38,9 @@ class WorkOrder extends Model
     {
         return $this->hasMany(WorkAbsence::class);
     }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(WorkReport::class);
+    }
 }

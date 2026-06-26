@@ -41,7 +41,7 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-users')
                     ->url(fn (): string => SocioResource::getUrl())
                     ->sort(20),
-                NavigationItem::make('Assegnazione lavoro')
+                NavigationItem::make('Gestione Lavori')
                     ->icon('heroicon-o-clipboard-document-list')
                     ->url(fn (): string => WorkOrderResource::getUrl())
                     ->sort(30),

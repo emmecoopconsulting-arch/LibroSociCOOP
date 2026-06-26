@@ -24,9 +24,9 @@ class WorkOrderResource extends Resource
 
     protected static ?string $pluralModelLabel = 'ordini di servizio giornalieri';
 
-    protected static ?string $navigationLabel = 'Ordine di servizio giornaliero';
+    protected static ?string $navigationLabel = 'Assegnazione Lavoro';
 
-    protected static ?string $navigationParentItem = 'Assegnazione lavoro';
+    protected static ?string $navigationParentItem = 'Gestione Lavori';
 
     protected static ?int $navigationSort = 31;
 

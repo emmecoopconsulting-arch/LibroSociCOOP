@@ -26,7 +26,7 @@ class WorkVehicleResource extends Resource
 
     protected static ?string $navigationLabel = 'Mezzi utilizzati';
 
-    protected static ?string $navigationParentItem = 'Assegnazione lavoro';
+    protected static ?string $navigationParentItem = 'Gestione Lavori';
 
     protected static ?int $navigationSort = 33;
 
