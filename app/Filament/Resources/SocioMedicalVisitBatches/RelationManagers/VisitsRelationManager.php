@@ -14,6 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 
 class VisitsRelationManager extends RelationManager
@@ -49,12 +50,12 @@ class VisitsRelationManager extends RelationManager
                             ->maxSize(15360)
                             ->downloadable()
                             ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                'path' => encrypt($file),
+                                'path' => Crypt::encryptString($file),
                                 'download' => true,
                             ]))
                             ->openable()
                             ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                'path' => encrypt($file),
+                                'path' => Crypt::encryptString($file),
                             ]))
                             ->columnSpanFull(),
                         Textarea::make('note')

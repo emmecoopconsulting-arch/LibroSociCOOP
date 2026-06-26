@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\WorkReports\Tables;
 
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 
 class WorkReportsTable
 {
@@ -41,6 +44,15 @@ class WorkReportsTable
                     ->limit(60),
             ])
             ->recordActions([
+                Action::make('scaricaRapportino')
+                    ->label('Scarica rapportino')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn ($record): string => route('local-files.file', [
+                        'path' => Crypt::encryptString($record->rapportino_path),
+                        'download' => true,
+                    ]))
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record): bool => filled($record->rapportino_path) && Storage::disk('local')->exists($record->rapportino_path)),
                 EditAction::make(),
             ])
             ->toolbarActions([

@@ -14,6 +14,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 
 class SocioForm
@@ -93,7 +94,14 @@ class SocioForm
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(10240)
                             ->downloadable()
+                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                                'download' => true,
+                            ]))
                             ->openable()
+                            ->getOpenableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                            ]))
                             ->helperText('Caricare il verbale del CDA in PDF, se disponibile.'),
                         DatePicker::make('data_uscita')
                             ->label('Data uscita'),

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Socios\RelationManagers;
 
 use App\Models\SocioDocument;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -18,6 +19,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentsRelationManager extends RelationManager
 {
@@ -51,7 +54,14 @@ class DocumentsRelationManager extends RelationManager
                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
                             ->maxSize(15360)
                             ->downloadable()
+                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                                'download' => true,
+                            ]))
                             ->openable()
+                            ->getOpenableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                            ]))
                             ->required()
                             ->columnSpanFull(),
                         Textarea::make('note')
@@ -93,6 +103,15 @@ class DocumentsRelationManager extends RelationManager
                 CreateAction::make(),
             ])
             ->recordActions([
+                Action::make('scarica')
+                    ->label('Scarica')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn ($record): string => route('local-files.file', [
+                        'path' => Crypt::encryptString($record->file_path),
+                        'download' => true,
+                    ]))
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record): bool => filled($record->file_path) && Storage::disk('local')->exists($record->file_path)),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

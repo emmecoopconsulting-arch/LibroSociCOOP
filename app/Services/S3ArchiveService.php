@@ -27,6 +27,10 @@ class S3ArchiveService
 
     public function archiveWorkReportAttachment(WorkReport $report): bool
     {
+        if (blank($report->rapportino_path)) {
+            return false;
+        }
+
         return $this->archive($report->rapportino_path, $this->workReportS3Path($report));
     }
 

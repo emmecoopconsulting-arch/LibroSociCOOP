@@ -33,6 +33,49 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assemblee/{assemblea}/download', fn (Assemblea $assemblea, AssembleaService $service) => $service->downloadResponse($assemblea))
         ->name('assemblee.download');
 
+    Route::get('/local-files/file', function (Request $request) {
+        try {
+            $path = Crypt::decryptString((string) $request->query('path'));
+        } catch (DecryptException) {
+            abort(404);
+        }
+
+        $path = trim($path);
+        $allowedPrefixes = [
+            'assemblee/',
+            'documenti-soci/',
+            'ordini-servizio/',
+            'rapporti-interventi/',
+            'verbali/',
+            'verbali-cda/',
+            'visite-mediche/',
+        ];
+
+        $isAllowedPath = $path !== ''
+            && ! str_contains($path, '..')
+            && collect($allowedPrefixes)->contains(fn (string $prefix): bool => str_starts_with($path, $prefix))
+            && Storage::disk('local')->exists($path);
+
+        abort_if(! $isAllowedPath, 404);
+
+        $headers = [
+            'Content-Type' => Storage::disk('local')->mimeType($path) ?: 'application/octet-stream',
+        ];
+
+        if ($request->boolean('download')) {
+            return response()->download(
+                Storage::disk('local')->path($path),
+                basename($path),
+                $headers
+            );
+        }
+
+        return response()->file(
+            Storage::disk('local')->path($path),
+            $headers
+        );
+    })->name('local-files.file');
+
     Route::get('/visite-mediche/{visit}/download', function (SocioMedicalVisit $visit) {
         abort_if(blank($visit->pdf_path) || ! Storage::disk('local')->exists($visit->pdf_path), 404);
 

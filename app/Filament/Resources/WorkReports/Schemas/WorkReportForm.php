@@ -11,6 +11,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Crypt;
 
 class WorkReportForm
 {
@@ -75,7 +76,14 @@ class WorkReportForm
                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
                             ->maxSize(15360)
                             ->downloadable()
+                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                                'download' => true,
+                            ]))
                             ->openable()
+                            ->getOpenableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                            ]))
                             ->required()
                             ->columnSpanFull(),
                         Textarea::make('note')

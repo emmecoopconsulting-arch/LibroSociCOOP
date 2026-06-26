@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Crypt;
 
 class VisiteMediche extends Page
 {
@@ -114,12 +115,12 @@ class VisiteMediche extends Page
                                     ->maxSize(15360)
                                     ->downloadable()
                                     ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                        'path' => encrypt($file),
+                                        'path' => Crypt::encryptString($file),
                                         'download' => true,
                                     ]))
                                     ->openable()
                                     ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                        'path' => encrypt($file),
+                                        'path' => Crypt::encryptString($file),
                                     ])),
                             ]),
                     ]),
