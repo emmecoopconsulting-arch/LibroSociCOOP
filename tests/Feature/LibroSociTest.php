@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\Assemblea as AssembleaPage;
 use App\Filament\Pages\IntestazioneDocumenti;
 use App\Filament\Pages\ModelliVerbali;
+use App\Filament\Pages\VisiteMediche;
 use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Filament\Resources\Socios\Pages\ListSocios;
 use App\Filament\Resources\Verbales\Pages\ListVerbales;
@@ -108,8 +109,64 @@ class LibroSociTest extends TestCase
             ->assertOk();
 
         $this->actingAs($admin)
+            ->get('/admin/visite-mediche')
+            ->assertOk();
+
+        $this->actingAs($admin)
             ->get('/admin/socio-variations')
             ->assertOk();
+    }
+
+    public function test_medical_visits_can_prepare_pdf_upload_rows_for_selected_socios(): void
+    {
+        $admin = User::factory()->create();
+        Role::findOrCreate('amministratore');
+        $admin->assignRole('amministratore');
+
+        $firstSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Mario',
+            'cognome' => 'Rossi',
+            'codice_fiscale' => 'RSSMRA80A01H501U',
+            'data_ammissione' => '2026-01-01',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+        $secondSocio = Socio::create([
+            'tipologia' => 'ordinario',
+            'nome' => 'Luigi',
+            'cognome' => 'Bianchi',
+            'codice_fiscale' => 'BNCLGU80A01H501V',
+            'data_ammissione' => '2026-01-01',
+            'stato' => 'attivo',
+            'capitale_versato' => 100,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(VisiteMediche::class)
+            ->fillForm([
+                'socio_ids' => [$firstSocio->id, $secondSocio->id],
+                'data_visita' => '2026-06-26',
+                'note' => 'Visita periodica',
+            ])
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('pdfData.visits.0.socio_label', 'Mario Rossi')
+            ->assertSet('pdfData.visits.1.socio_label', 'Luigi Bianchi')
+            ->set('pdfData.visits.0.pdf_path', ['visite-mediche/mario.pdf'])
+            ->set('pdfData.visits.1.pdf_path', ['visite-mediche/luigi.pdf'])
+            ->call('savePdfs')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseCount('socio_medical_visits', 2);
+        $this->assertDatabaseHas('socio_medical_visits', [
+            'socio_id' => $firstSocio->id,
+            'pdf_path' => 'visite-mediche/mario.pdf',
+        ]);
+        $this->assertDatabaseHas('socio_medical_visits', [
+            'socio_id' => $secondSocio->id,
+            'pdf_path' => 'visite-mediche/luigi.pdf',
+        ]);
     }
 
     public function test_document_header_settings_can_be_saved_from_filament_page(): void

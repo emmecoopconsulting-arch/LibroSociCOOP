@@ -43,7 +43,7 @@ class S3ArchiveService
         $result['enabled'] = true;
 
         Socio::query()
-            ->with(['documents', 'verbales'])
+            ->with(['documents', 'medicalVisits', 'verbales'])
             ->chunkById(100, function ($soci) use (&$result): void {
                 foreach ($soci as $socio) {
                     if (filled($socio->verbale_cda_path)) {
@@ -53,6 +53,12 @@ class S3ArchiveService
                     foreach ($socio->documents as $document) {
                         if (filled($document->file_path)) {
                             $this->syncLocalToS3($document->file_path, $this->socioS3Path($socio, 'documenti', $document->file_path), $result);
+                        }
+                    }
+
+                    foreach ($socio->medicalVisits as $visit) {
+                        if (filled($visit->pdf_path)) {
+                            $this->syncLocalToS3($visit->pdf_path, $this->socioS3Path($socio, 'visite-mediche', $visit->pdf_path), $result);
                         }
                     }
 
