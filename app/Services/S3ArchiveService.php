@@ -8,6 +8,7 @@ use App\Models\Verbale;
 use App\Models\WorkOrder;
 use App\Models\WorkReport;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -27,6 +28,46 @@ class S3ArchiveService
     public function archiveWorkReportAttachment(WorkReport $report): bool
     {
         return $this->archive($report->rapportino_path, $this->workReportS3Path($report));
+    }
+
+    /**
+     * @return array{enabled: bool, ok: bool, path: ?string, message: ?string}
+     */
+    public function testConnection(): array
+    {
+        if (! $this->enabled()) {
+            return [
+                'enabled' => false,
+                'ok' => false,
+                'path' => null,
+                'message' => 'Configurazione S3 incompleta.',
+            ];
+        }
+
+        $path = 'DIAGNOSTICA/connessione-s3.txt';
+
+        try {
+            $this->disk()->put($path, 'Connessione S3 verificata il '.Carbon::now()->format('Y-m-d H:i:s'));
+
+            return [
+                'enabled' => true,
+                'ok' => true,
+                'path' => $path,
+                'message' => null,
+            ];
+        } catch (\Throwable $exception) {
+            Log::warning('Test connessione S3 non riuscito.', [
+                's3_path' => $path,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return [
+                'enabled' => true,
+                'ok' => false,
+                'path' => $path,
+                'message' => $exception->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -152,10 +193,18 @@ class S3ArchiveService
 
             $disk = $this->disk();
 
-            if ($disk->exists($s3Path)) {
-                $result['already_present']++;
+            try {
+                if ($disk->exists($s3Path)) {
+                    $result['already_present']++;
 
-                return;
+                    return;
+                }
+            } catch (\Throwable $exception) {
+                Log::warning('Controllo esistenza oggetto S3 non riuscito, tento comunque il caricamento.', [
+                    'local_path' => $localPath,
+                    's3_path' => $s3Path,
+                    'message' => $exception->getMessage(),
+                ]);
             }
 
             $result['missing']++;

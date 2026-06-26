@@ -141,6 +141,9 @@ class Impostazioni extends Page
                     ->livewireSubmitHandler('save')
                     ->footer([
                         Actions::make([
+                            Action::make('testS3')
+                                ->label('Test connessione S3')
+                                ->action('testS3'),
                             Action::make('syncS3')
                                 ->label('Sincronizza archivio S3')
                                 ->requiresConfirmation()
@@ -204,6 +207,27 @@ class Impostazioni extends Page
         }
 
         $notification->send();
+    }
+
+    public function testS3(S3ArchiveService $archiveService): void
+    {
+        $result = $archiveService->testConnection();
+
+        if ($result['ok']) {
+            Notification::make()
+                ->title('Connessione S3 riuscita')
+                ->body("File di diagnostica creato: {$result['path']}")
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title($result['enabled'] ? 'Connessione S3 non riuscita' : 'Archivio S3 non configurato')
+            ->body($result['message'])
+            ->danger()
+            ->send();
     }
 
     public static function canAccess(): bool
