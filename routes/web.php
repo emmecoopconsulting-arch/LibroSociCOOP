@@ -6,6 +6,9 @@ use App\Models\SocioMedicalVisit;
 use App\Services\AssembleaService;
 use App\Services\InitialAdminSetupService;
 use App\Services\LibroSociExportService;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Route;
 
@@ -39,4 +42,35 @@ Route::middleware('auth')->group(function (): void {
             ['Content-Type' => 'application/pdf']
         );
     })->name('visite-mediche.download');
+
+    Route::get('/visite-mediche/file', function (Request $request) {
+        try {
+            $path = Crypt::decryptString((string) $request->query('path'));
+        } catch (DecryptException) {
+            abort(404);
+        }
+
+        $path = trim($path);
+
+        abort_if(
+            $path === ''
+            || str_contains($path, '..')
+            || ! str_starts_with($path, 'visite-mediche/')
+            || ! Storage::disk('local')->exists($path),
+            404
+        );
+
+        if ($request->boolean('download')) {
+            return response()->download(
+                Storage::disk('local')->path($path),
+                basename($path),
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        return response()->file(
+            Storage::disk('local')->path($path),
+            ['Content-Type' => 'application/pdf']
+        );
+    })->name('visite-mediche.file');
 });

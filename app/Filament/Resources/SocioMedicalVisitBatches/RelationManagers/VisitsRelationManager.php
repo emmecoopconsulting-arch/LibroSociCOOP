@@ -48,7 +48,14 @@ class VisitsRelationManager extends RelationManager
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(15360)
                             ->downloadable()
+                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                                'path' => encrypt($file),
+                                'download' => true,
+                            ]))
                             ->openable()
+                            ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                                'path' => encrypt($file),
+                            ]))
                             ->columnSpanFull(),
                         Textarea::make('note')
                             ->label('Note')

@@ -113,7 +113,14 @@ class VisiteMediche extends Page
                                     ->acceptedFileTypes(['application/pdf'])
                                     ->maxSize(15360)
                                     ->downloadable()
-                                    ->openable(),
+                                    ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                                        'path' => encrypt($file),
+                                        'download' => true,
+                                    ]))
+                                    ->openable()
+                                    ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                                        'path' => encrypt($file),
+                                    ])),
                             ]),
                     ]),
             ])

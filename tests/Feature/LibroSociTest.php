@@ -25,6 +25,7 @@ use App\Services\VerbalePdfService;
 use App\Services\VerbaleTemplateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -770,6 +771,14 @@ class LibroSociTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('visite-mediche.download', $visit))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+
+        $this->actingAs($admin)
+            ->get(route('visite-mediche.file', [
+                'path' => Crypt::encryptString('visite-mediche/mario.pdf'),
+                'download' => true,
+            ]))
             ->assertOk()
             ->assertHeader('content-disposition');
     }
