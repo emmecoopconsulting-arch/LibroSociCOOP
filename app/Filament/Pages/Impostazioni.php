@@ -3,9 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\Models\AppSetting;
+use App\Services\LocalPayrollOcrService;
+use App\Services\PayrollMailService;
 use App\Services\S3ArchiveService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -45,6 +48,13 @@ class Impostazioni extends Page
             's3_bucket' => AppSetting::string(AppSetting::S3_BUCKET),
             's3_endpoint' => AppSetting::string(AppSetting::S3_ENDPOINT),
             's3_use_path_style_endpoint' => AppSetting::bool(AppSetting::S3_USE_PATH_STYLE_ENDPOINT),
+            'smtp_host' => AppSetting::string(AppSetting::SMTP_HOST),
+            'smtp_port' => AppSetting::int(AppSetting::SMTP_PORT),
+            'smtp_scheme' => AppSetting::string(AppSetting::SMTP_SCHEME) ?: 'smtp',
+            'smtp_username' => AppSetting::string(AppSetting::SMTP_USERNAME),
+            'smtp_password' => null,
+            'smtp_from_address' => AppSetting::string(AppSetting::SMTP_FROM_ADDRESS),
+            'smtp_from_name' => AppSetting::string(AppSetting::SMTP_FROM_NAME),
         ]);
     }
 
@@ -107,6 +117,44 @@ class Impostazioni extends Page
                         Toggle::make('s3_use_path_style_endpoint')
                             ->label('Path style endpoint'),
                     ]),
+                Section::make('Invio buste paga — Amazon SES SMTP')
+                    ->description('Le credenziali SMTP di SES sono diverse dalle access key AWS. Il mittente deve essere verificato in Amazon SES.')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('smtp_host')
+                            ->label('Host SMTP')
+                            ->placeholder('email-smtp.eu-south-1.amazonaws.com')
+                            ->maxLength(255),
+                        TextInput::make('smtp_port')
+                            ->label('Porta')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(65535)
+                            ->default(587),
+                        Select::make('smtp_scheme')
+                            ->label('Crittografia')
+                            ->options(['smtp' => 'STARTTLS (porta 587)', 'smtps' => 'TLS implicito (porta 465)'])
+                            ->default('smtp'),
+                        TextInput::make('smtp_username')
+                            ->label('Username SMTP')
+                            ->maxLength(255),
+                        TextInput::make('smtp_password')
+                            ->label('Password SMTP')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Lasciare vuoto per mantenere la password già salvata.')
+                            ->maxLength(255),
+                        TextInput::make('smtp_from_address')
+                            ->label('Email mittente')
+                            ->email()
+                            ->maxLength(255),
+                        TextInput::make('smtp_from_name')
+                            ->label('Nome mittente')
+                            ->maxLength(255),
+                    ]),
+                Section::make('OCR locale')
+                    ->description(fn (): string => $this->ocrDescription())
+                    ->schema([]),
             ])
             ->statePath('data');
     }
@@ -137,6 +185,9 @@ class Impostazioni extends Page
                                 ->label('Sincronizza archivio S3')
                                 ->requiresConfirmation()
                                 ->action('syncS3'),
+                            Action::make('testSmtp')
+                                ->label('Invia email SMTP di prova')
+                                ->action('testSmtp'),
                             Action::make('save')
                                 ->label('Salva impostazioni')
                                 ->submit('save'),
@@ -223,6 +274,37 @@ class Impostazioni extends Page
             ->send();
     }
 
+    public function testSmtp(PayrollMailService $mailService): void
+    {
+        $this->saveSettings();
+
+        try {
+            $mailService->sendTest((string) auth()->user()->email);
+            Notification::make()
+                ->title('Email di prova inviata')
+                ->body('Destinatario: '.auth()->user()->email)
+                ->success()
+                ->send();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->title('Invio SMTP non riuscito')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function ocrDescription(): string
+    {
+        $diagnostics = app(LocalPayrollOcrService::class)->diagnostics();
+        $tools = $diagnostics['ready'] ? 'Tesseract e Poppler disponibili.' : 'Tesseract o Poppler mancanti.';
+        $language = in_array('ita', $diagnostics['languages'], true)
+            ? 'Lingua italiana installata.'
+            : 'Lingua italiana non installata: viene usato il modello inglese.';
+
+        return "{$tools} {$language}";
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->hasRole('amministratore') ?? false;
@@ -247,5 +329,12 @@ class Impostazioni extends Page
         AppSetting::setValue(AppSetting::S3_BUCKET, $this->nullableString($data['s3_bucket'] ?? null));
         AppSetting::setValue(AppSetting::S3_ENDPOINT, $this->nullableString($data['s3_endpoint'] ?? null));
         AppSetting::setValue(AppSetting::S3_USE_PATH_STYLE_ENDPOINT, (bool) ($data['s3_use_path_style_endpoint'] ?? false));
+        AppSetting::setValue(AppSetting::SMTP_HOST, $this->nullableString($data['smtp_host'] ?? null));
+        AppSetting::setValue(AppSetting::SMTP_PORT, (int) ($data['smtp_port'] ?? 587));
+        AppSetting::setValue(AppSetting::SMTP_SCHEME, $this->nullableString($data['smtp_scheme'] ?? null));
+        AppSetting::setValue(AppSetting::SMTP_USERNAME, $this->nullableString($data['smtp_username'] ?? null));
+        AppSetting::setSmtpPassword($this->nullableString($data['smtp_password'] ?? null));
+        AppSetting::setValue(AppSetting::SMTP_FROM_ADDRESS, $this->nullableString($data['smtp_from_address'] ?? null));
+        AppSetting::setValue(AppSetting::SMTP_FROM_NAME, $this->nullableString($data['smtp_from_name'] ?? null));
     }
 }

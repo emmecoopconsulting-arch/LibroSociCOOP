@@ -39,6 +39,19 @@ php artisan migrate --seed
 php artisan serve
 ```
 
+Per la distribuzione locale delle buste paga sono richiesti Tesseract, il modello
+italiano e Poppler:
+
+```bash
+# Debian/Ubuntu
+sudo apt install tesseract-ocr tesseract-ocr-ita poppler-utils
+
+# macOS con Homebrew
+brew install tesseract tesseract-lang poppler
+```
+
+L'immagine Docker include già queste dipendenze.
+
 Pannello admin: `http://127.0.0.1:8000/admin`
 
 Al primo accesso il pannello mostra il setup iniziale per impostare nome utente e password amministratore. Questi valori sostituiscono le credenziali tecniche create dal seed.
@@ -133,6 +146,8 @@ Intestazioni riconosciute:
 - Verbali di ammissione collegati al socio, generati da Blade e salvati in `storage/app/private/verbali`.
 - Pagina Filament “Gestione Verbali” per generazione singola o massiva dei verbali mancanti.
 - Storico modifiche su tabella dedicata e activity log.
+- Distribuzione buste paga da PDF unico con OCR Tesseract locale, revisione
+  manuale delle associazioni e invio tramite Amazon SES SMTP.
 
 ## Verifica
 

@@ -32,6 +32,20 @@ class AppSetting extends Model
 
     public const S3_USE_PATH_STYLE_ENDPOINT = 's3_use_path_style_endpoint';
 
+    public const SMTP_HOST = 'smtp_host';
+
+    public const SMTP_PORT = 'smtp_port';
+
+    public const SMTP_SCHEME = 'smtp_scheme';
+
+    public const SMTP_USERNAME = 'smtp_username';
+
+    public const SMTP_PASSWORD = 'smtp_password';
+
+    public const SMTP_FROM_ADDRESS = 'smtp_from_address';
+
+    public const SMTP_FROM_NAME = 'smtp_from_name';
+
     public const DEFAULTS = [
         self::PERMESSO_SOGGIORNO_ALERT_DAYS => 90,
         self::VISITA_MEDICA_ALERT_DAYS => 60,
@@ -51,6 +65,13 @@ class AppSetting extends Model
         self::S3_BUCKET => null,
         self::S3_ENDPOINT => null,
         self::S3_USE_PATH_STYLE_ENDPOINT => false,
+        self::SMTP_HOST => null,
+        self::SMTP_PORT => 587,
+        self::SMTP_SCHEME => 'smtp',
+        self::SMTP_USERNAME => null,
+        self::SMTP_PASSWORD => null,
+        self::SMTP_FROM_ADDRESS => null,
+        self::SMTP_FROM_NAME => 'Libro Soci COOP',
     ];
 
     protected function casts(): array
@@ -130,5 +151,27 @@ class AppSetting extends Model
         }
 
         static::setValue(static::S3_SECRET_ACCESS_KEY, Crypt::encryptString($value));
+    }
+
+    public static function smtpPassword(): ?string
+    {
+        $encrypted = static::string(static::SMTP_PASSWORD);
+
+        if (blank($encrypted)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($encrypted);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public static function setSmtpPassword(?string $value): void
+    {
+        if (filled($value)) {
+            static::setValue(static::SMTP_PASSWORD, Crypt::encryptString($value));
+        }
     }
 }
