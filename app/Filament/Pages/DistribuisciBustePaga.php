@@ -86,11 +86,21 @@ class DistribuisciBustePaga extends Page
                             ->label('Conferma e invia')
                             ->icon('heroicon-o-paper-airplane')
                             ->color('success')
-                            ->visible(fn (): bool => $this->distributionId !== null)
+                            ->visible(fn (): bool => $this->distributionId !== null
+                                && ! in_array($this->currentDistribution()?->status, ['sent', 'partial'], true))
                             ->requiresConfirmation()
                             ->modalHeading('Inviare le buste paga?')
                             ->modalDescription('Ogni socio riceverà esclusivamente le pagine a lui associate. L’operazione verrà registrata.')
                             ->action('distribute'),
+                        Action::make('retryFailed')
+                            ->label('Riprova fallite')
+                            ->icon('heroicon-o-arrow-path')
+                            ->color('warning')
+                            ->visible(fn (): bool => ($this->currentDistribution()?->failed_count ?? 0) > 0)
+                            ->requiresConfirmation()
+                            ->modalHeading('Riprovare gli invii falliti?')
+                            ->modalDescription('Verranno riprovate soltanto le email in errore. Quelle già inviate non saranno reinviate.')
+                            ->action('retryFailed'),
                     ]),
                 ]),
         ]);
@@ -176,6 +186,26 @@ class DistribuisciBustePaga extends Page
             $notification->send();
         } catch (\Throwable $exception) {
             Notification::make()->title('Invio bloccato')->body($exception->getMessage())->danger()->send();
+        }
+    }
+
+    public function retryFailed(PayrollMailService $mailService): void
+    {
+        $distribution = $this->currentDistribution();
+
+        if (! $distribution || $distribution->failed_count === 0) {
+            return;
+        }
+
+        try {
+            $result = $mailService->distribute($distribution, onlyFailed: true);
+            $notification = Notification::make()
+                ->title('Nuovo tentativo completato')
+                ->body("Inviate totali: {$result['sent']}. Ancora in errore: {$result['failed']}.");
+            $result['failed'] > 0 ? $notification->warning() : $notification->success();
+            $notification->send();
+        } catch (\Throwable $exception) {
+            Notification::make()->title('Nuovo tentativo non riuscito')->body($exception->getMessage())->danger()->send();
         }
     }
 

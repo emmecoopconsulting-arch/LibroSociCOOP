@@ -16,7 +16,7 @@ class PayrollMailService
     /**
      * @return array{sent: int, failed: int, skipped: int}
      */
-    public function distribute(PayrollDistribution $distribution): array
+    public function distribute(PayrollDistribution $distribution, bool $onlyFailed = false): array
     {
         $distribution->load(['pages.socio']);
         $unassigned = $distribution->pages->whereNull('socio_id')->count();
@@ -47,9 +47,11 @@ class PayrollMailService
 
             $delivery = $distribution->deliveries()->firstOrNew(['socio_id' => $socio->id]);
 
-            if ($delivery->exists && $delivery->status === 'sent') {
-                $sent++;
+            if ($onlyFailed && (! $delivery->exists || $delivery->status !== 'failed')) {
+                continue;
+            }
 
+            if ($delivery->exists && $delivery->status === 'sent') {
                 continue;
             }
 
@@ -60,7 +62,6 @@ class PayrollMailService
                     'status' => 'skipped_no_email',
                     'error' => 'Documento archiviato nello storico del socio; email non presente.',
                 ])->save();
-                $skipped++;
 
                 continue;
             }
@@ -77,13 +78,15 @@ class PayrollMailService
                     new PayrollMail($socio, $distribution->period ?: 'indicato', $absolutePath),
                 );
                 $delivery->update(['status' => 'sent', 'sent_at' => now()]);
-                $sent++;
             } catch (\Throwable $exception) {
                 report($exception);
                 $delivery->update(['status' => 'failed', 'error' => $exception->getMessage()]);
-                $failed++;
             }
         }
+
+        $sent = $distribution->deliveries()->where('status', 'sent')->count();
+        $failed = $distribution->deliveries()->where('status', 'failed')->count();
+        $skipped = $distribution->deliveries()->where('status', 'skipped_no_email')->count();
 
         $distribution->update([
             'status' => $failed > 0 ? 'partial' : 'sent',

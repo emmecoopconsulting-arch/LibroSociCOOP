@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PayrollMail;
 use App\Models\AppSetting;
 use App\Models\PayrollDistribution;
 use App\Models\Socio;
@@ -170,6 +171,72 @@ class PayrollDistributionTest extends TestCase
         $this->assertDatabaseHas('payroll_distributions', [
             'id' => $distribution->id,
             'skipped_count' => 1,
+        ]);
+    }
+
+    public function test_retry_only_sends_failed_deliveries(): void
+    {
+        Storage::fake('local');
+        Mail::fake();
+        $alreadySent = Socio::create($this->socioData([
+            'email' => 'sent@example.test',
+            'codice_fiscale' => 'RSSMRA80A01F205X',
+        ]));
+        $failed = Socio::create($this->socioData([
+            'email' => 'retry@example.test',
+            'codice_fiscale' => 'BNCMRA80A01F205Y',
+        ]));
+        $source = Storage::disk('local')->path('payroll/sources/retry.pdf');
+        Storage::disk('local')->makeDirectory('payroll/sources');
+        $pdf = new Fpdi;
+        $pdf->AddPage();
+        $pdf->SetFont('Arial', '', 12);
+        $pdf->Text(10, 10, 'Prima busta');
+        $pdf->AddPage();
+        $pdf->Text(10, 10, 'Seconda busta');
+        $pdf->Output('F', $source);
+        $distribution = PayrollDistribution::create([
+            'original_name' => 'retry.pdf',
+            'source_path' => 'payroll/sources/retry.pdf',
+            'period' => 'Luglio 2026',
+            'status' => 'partial',
+            'failed_count' => 1,
+        ]);
+        $distribution->pages()->createMany([
+            ['socio_id' => $alreadySent->id, 'page_number' => 1, 'page_path' => 'page-1.pdf'],
+            ['socio_id' => $failed->id, 'page_number' => 2, 'page_path' => 'page-2.pdf'],
+        ]);
+        $distribution->deliveries()->createMany([
+            [
+                'socio_id' => $alreadySent->id,
+                'email' => $alreadySent->email,
+                'attachment_path' => 'sent.pdf',
+                'status' => 'sent',
+            ],
+            [
+                'socio_id' => $failed->id,
+                'email' => $failed->email,
+                'attachment_path' => 'failed.pdf',
+                'status' => 'failed',
+                'error' => 'Temporary SMTP error',
+            ],
+        ]);
+        AppSetting::setValue(AppSetting::MAIL_PROVIDER, 'traditional');
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_HOST, 'smtp.example.test');
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_PORT, 587);
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_SCHEME, 'smtp');
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_USERNAME, 'user');
+        AppSetting::setTraditionalSmtpPassword('secret');
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_FROM_ADDRESS, 'paghe@example.test');
+
+        $result = app(PayrollMailService::class)->distribute($distribution, onlyFailed: true);
+
+        Mail::assertSent(PayrollMail::class, 1);
+        Mail::assertSent(PayrollMail::class, fn (PayrollMail $mail): bool => $mail->socio->is($failed));
+        $this->assertSame(['sent' => 2, 'failed' => 0, 'skipped' => 0], $result);
+        $this->assertDatabaseHas('payroll_deliveries', [
+            'socio_id' => $alreadySent->id,
+            'status' => 'sent',
         ]);
     }
 
