@@ -8,6 +8,7 @@ use App\Models\PayrollDistribution;
 use App\Models\Socio;
 use App\Models\SocioDocument;
 use App\Services\LocalPayrollOcrService;
+use App\Services\PayrollDocumentService;
 use App\Services\PayrollMailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -172,6 +173,12 @@ class PayrollDistributionTest extends TestCase
             'id' => $distribution->id,
             'skipped_count' => 1,
         ]);
+
+        $combinedPath = app(PayrollDocumentService::class)->combinedWithoutEmail($distribution);
+        $this->assertNotNull($combinedPath);
+        Storage::disk('local')->assertExists($combinedPath);
+        $combined = new Fpdi;
+        $this->assertSame(2, $combined->setSourceFile(Storage::disk('local')->path($combinedPath)));
     }
 
     public function test_retry_only_sends_failed_deliveries(): void

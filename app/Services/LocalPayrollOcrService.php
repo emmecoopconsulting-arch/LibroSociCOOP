@@ -99,6 +99,27 @@ class LocalPayrollOcrService
     }
 
     /**
+     * @param  array<int, string>  $sources
+     */
+    public function mergePdfFiles(array $sources, string $destination): void
+    {
+        $output = new Fpdi;
+
+        foreach ($sources as $source) {
+            $pageCount = $output->setSourceFile($source);
+
+            for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+                $template = $output->importPage($pageNumber);
+                $size = $output->getTemplateSize($template);
+                $output->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $output->useTemplate($template);
+            }
+        }
+
+        $output->Output('F', $destination);
+    }
+
+    /**
      * @param  array<int, string>  $languages
      */
     private function ocrPage(string $source, int $pageNumber, array $languages): string

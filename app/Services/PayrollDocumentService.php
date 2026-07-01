@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PayrollDistribution;
 use App\Models\SocioDocument;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
 class PayrollDocumentService
@@ -71,5 +72,46 @@ class PayrollDocumentService
         }
 
         return $documents;
+    }
+
+    public function combinedWithoutEmail(PayrollDistribution $distribution): ?string
+    {
+        $distribution->load('pages.socio');
+        $pagesWithoutEmail = $distribution->pages
+            ->filter(fn ($page): bool => $page->socio_id !== null && blank($page->socio?->email))
+            ->sortBy('page_number');
+        $pageNumbers = $pagesWithoutEmail->pluck('page_number')->all();
+
+        if ($pageNumbers === []) {
+            return null;
+        }
+
+        $directory = "payroll/{$distribution->id}/exports";
+        $relativePath = "{$directory}/buste-senza-email.pdf";
+        $coverPath = "{$directory}/elenco-consegne-manuali.pdf";
+        $payrollsPath = "{$directory}/sole-buste-senza-email.pdf";
+        Storage::disk('local')->makeDirectory($directory);
+        $this->ocrService->extractPages(
+            Storage::disk('local')->path($distribution->source_path),
+            $pageNumbers,
+            Storage::disk('local')->path($payrollsPath),
+        );
+        $recipients = $pagesWithoutEmail
+            ->groupBy('socio_id')
+            ->map(fn ($pages) => [
+                'socio' => $pages->first()->socio,
+                'pages' => $pages->count(),
+            ])
+            ->values();
+        Storage::disk('local')->put($coverPath, Pdf::loadView('pdf.payroll-manual-delivery-list', [
+            'distribution' => $distribution,
+            'recipients' => $recipients,
+        ])->output());
+        $this->ocrService->mergePdfFiles([
+            Storage::disk('local')->path($coverPath),
+            Storage::disk('local')->path($payrollsPath),
+        ], Storage::disk('local')->path($relativePath));
+
+        return $relativePath;
     }
 }

@@ -21,8 +21,10 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DistribuisciBustePaga extends Page
 {
@@ -207,6 +209,31 @@ class DistribuisciBustePaga extends Page
         } catch (\Throwable $exception) {
             Notification::make()->title('Nuovo tentativo non riuscito')->body($exception->getMessage())->danger()->send();
         }
+    }
+
+    public function downloadWithoutEmail(PayrollDocumentService $documentService): ?StreamedResponse
+    {
+        $distribution = $this->currentDistribution();
+
+        if (! $distribution) {
+            return null;
+        }
+
+        $path = $documentService->combinedWithoutEmail($distribution);
+
+        if (! $path) {
+            Notification::make()
+                ->title('Nessuna busta senza email')
+                ->body('Tutti i soci assegnati hanno un indirizzo email.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
+        $period = Str::slug($distribution->period ?: "distribuzione-{$distribution->id}");
+
+        return Storage::disk('local')->download($path, "buste-senza-email-{$period}.pdf");
     }
 
     public function currentDistribution(): ?PayrollDistribution

@@ -201,6 +201,29 @@
             white-space: nowrap;
         }
 
+        .payroll-print-row {
+            display: flex;
+            justify-content: flex-end;
+            margin: -8px 0 20px;
+        }
+
+        .payroll-print-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border: 1px solid #d97706;
+            border-radius: 8px;
+            color: #9a5b05;
+            background: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .payroll-print-button:hover { background: #fff7ed; }
+        .payroll-print-button:disabled { cursor: wait; opacity: .55; }
+
         .payroll-error-list {
             display: grid;
             gap: 8px;
@@ -313,6 +336,7 @@
             @endif
 
             @php($totalRecipients = $distribution->pages->whereNotNull('socio_id')->pluck('socio_id')->unique()->count())
+            @php($withoutEmailRecipients = $distribution->pages->filter(fn ($page) => $page->socio_id && blank($page->socio?->email))->pluck('socio_id')->unique()->count())
             @php($processedRecipients = $distribution->sent_count + $distribution->failed_count + $distribution->skipped_count)
             @php($progress = $totalRecipients > 0 ? min(100, (int) round(($processedRecipients / $totalRecipients) * 100)) : 0)
 
@@ -331,6 +355,21 @@
                     </div>
                 </div>
             </div>
+
+            @if ($withoutEmailRecipients > 0)
+                <div class="payroll-print-row">
+                    <button
+                        type="button"
+                        class="payroll-print-button"
+                        wire:click="downloadWithoutEmail"
+                        wire:loading.attr="disabled"
+                        wire:target="downloadWithoutEmail"
+                    >
+                        <span aria-hidden="true">↓</span>
+                        Scarica elenco e {{ $withoutEmailRecipients }} {{ $withoutEmailRecipients === 1 ? 'busta senza email' : 'buste senza email' }}
+                    </button>
+                </div>
+            @endif
 
             @if ($distribution->failed_count > 0)
                 <div class="payroll-error-panel">
