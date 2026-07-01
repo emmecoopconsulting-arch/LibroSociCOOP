@@ -66,7 +66,7 @@ class SocioDocument extends Model
         $this->loadMissing('socio');
 
         if ($this->socio && filled($this->file_path)) {
-            app(S3ArchiveService::class)->archiveSocioLocalFile($this->socio, 'documenti', $this->file_path);
+            app(S3ArchiveService::class)->archiveSocioDocument($this);
         }
     }
 }

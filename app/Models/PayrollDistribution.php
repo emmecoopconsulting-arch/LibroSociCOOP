@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\S3ArchiveService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class PayrollDistribution extends Model
 {
+    protected static function booted(): void
+    {
+        static::created(function (PayrollDistribution $distribution): void {
+            app(S3ArchiveService::class)->archivePayrollSource($distribution);
+        });
+
+        static::updated(function (PayrollDistribution $distribution): void {
+            if ($distribution->wasChanged('source_path')) {
+                app(S3ArchiveService::class)->archivePayrollSource($distribution);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return ['sent_at' => 'datetime'];

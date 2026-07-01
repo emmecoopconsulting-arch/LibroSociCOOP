@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\S3ArchiveService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,6 +23,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Assemblea extends Model
 {
+    protected static function booted(): void
+    {
+        static::updated(function (Assemblea $assemblea): void {
+            if ($assemblea->wasChanged('file_path')) {
+                app(S3ArchiveService::class)->archiveAssemblyPdf($assemblea);
+            }
+        });
+    }
+
     public const STATI = [
         'bozza' => 'Bozza',
         'in_corso' => 'In corso',

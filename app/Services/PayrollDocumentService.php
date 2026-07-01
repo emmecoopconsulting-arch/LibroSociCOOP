@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\PayrollDistribution;
+use App\Models\Socio;
 use App\Models\SocioDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PayrollDocumentService
 {
@@ -21,7 +23,7 @@ class PayrollDocumentService
      */
     public function sync(PayrollDistribution $distribution): array
     {
-        $distribution->load('pages');
+        $distribution->load('pages.socio');
         $source = Storage::disk('local')->path($distribution->source_path);
         $assignedGroups = $distribution->pages
             ->whereNotNull('socio_id')
@@ -29,7 +31,14 @@ class PayrollDocumentService
         $documents = [];
 
         foreach ($assignedGroups as $socioId => $pages) {
-            $relativePath = "documenti-soci/buste-paga/{$socioId}/distribuzione-{$distribution->id}.pdf";
+            $socio = $pages->first()->socio;
+            $filename = $this->payrollFilename($distribution, $socio);
+            $relativePath = "documenti-soci/buste-paga/{$socioId}/{$filename}";
+            $existingDocument = SocioDocument::query()
+                ->where('payroll_distribution_id', $distribution->id)
+                ->where('socio_id', (int) $socioId)
+                ->first();
+            $previousPath = $existingDocument?->file_path;
             Storage::disk('local')->makeDirectory(dirname($relativePath));
             $this->ocrService->extractPages(
                 $source,
@@ -51,11 +60,11 @@ class PayrollDocumentService
                 ],
             );
             $documents[(int) $socioId]->loadMissing('socio');
-            $this->archiveService->archiveSocioLocalFile(
-                $documents[(int) $socioId]->socio,
-                'documenti',
-                $relativePath,
-            );
+            $this->archiveService->archiveSocioDocument($documents[(int) $socioId]);
+
+            if (filled($previousPath) && $previousPath !== $relativePath) {
+                Storage::disk('local')->delete($previousPath);
+            }
         }
 
         $staleDocuments = SocioDocument::query()
@@ -72,6 +81,14 @@ class PayrollDocumentService
         }
 
         return $documents;
+    }
+
+    private function payrollFilename(PayrollDistribution $distribution, Socio $socio): string
+    {
+        $period = Str::slug($distribution->period) ?: 'periodo-non-indicato';
+        $member = Str::slug(trim("{$socio->cognome} {$socio->nome} {$socio->codice_socio}"));
+
+        return "busta-paga-{$period}-{$member}-{$distribution->id}.pdf";
     }
 
     public function combinedWithoutEmail(PayrollDistribution $distribution): ?string

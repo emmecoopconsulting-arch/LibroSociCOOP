@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Models\AppSetting;
+use App\Models\Assemblea;
+use App\Models\PayrollDistribution;
 use App\Models\Socio;
+use App\Models\SocioDocument;
 use App\Models\Verbale;
 use App\Models\WorkOrder;
 use App\Models\WorkReport;
@@ -23,6 +26,44 @@ class S3ArchiveService
     public function archiveSocioLocalFile(Socio $socio, string $section, string $localPath, ?string $contents = null): bool
     {
         return $this->archive($localPath, $this->socioS3Path($socio, $section, $localPath), $contents);
+    }
+
+    public function archiveSocioDocument(SocioDocument $document): bool
+    {
+        $document->loadMissing('socio');
+
+        if (! $document->socio || blank($document->file_path)) {
+            return false;
+        }
+
+        $archived = $this->archive(
+            $document->file_path,
+            $this->socioDocumentS3Path($document),
+        );
+
+        if ($archived) {
+            $this->removeLegacySocioDocumentObject($document);
+        }
+
+        return $archived;
+    }
+
+    public function archivePayrollSource(PayrollDistribution $distribution): bool
+    {
+        if (blank($distribution->source_path)) {
+            return false;
+        }
+
+        return $this->archive($distribution->source_path, $this->payrollSourceS3Path($distribution));
+    }
+
+    public function archiveAssemblyPdf(Assemblea $assemblea): bool
+    {
+        if (blank($assemblea->file_path)) {
+            return false;
+        }
+
+        return $this->archive($assemblea->file_path, $this->assemblyS3Path($assemblea));
     }
 
     public function archiveWorkReportAttachment(WorkReport $report): bool
@@ -97,7 +138,8 @@ class S3ArchiveService
 
                     foreach ($socio->documents as $document) {
                         if (filled($document->file_path)) {
-                            $this->syncLocalToS3($document->file_path, $this->socioS3Path($socio, 'documenti', $document->file_path), $result);
+                            $this->syncLocalToS3($document->file_path, $this->socioDocumentS3Path($document), $result);
+                            $this->removeLegacySocioDocumentObject($document);
                         }
                     }
 
@@ -112,6 +154,22 @@ class S3ArchiveService
                             $this->syncLocalToS3($verbale->file_path, $this->socioS3Path($socio, 'verbali', $verbale->file_path), $result);
                         }
                     }
+                }
+            });
+
+        PayrollDistribution::query()
+            ->whereNotNull('source_path')
+            ->chunkById(100, function ($distributions) use (&$result): void {
+                foreach ($distributions as $distribution) {
+                    $this->syncLocalToS3($distribution->source_path, $this->payrollSourceS3Path($distribution), $result);
+                }
+            });
+
+        Assemblea::query()
+            ->whereNotNull('file_path')
+            ->chunkById(100, function ($assemblies) use (&$result): void {
+                foreach ($assemblies as $assemblea) {
+                    $this->syncLocalToS3($assemblea->file_path, $this->assemblyS3Path($assemblea), $result);
                 }
             });
 
@@ -259,6 +317,85 @@ class S3ArchiveService
         );
     }
 
+    private function socioDocumentS3Path(SocioDocument $document): string
+    {
+        $document->loadMissing('socio');
+        $extension = pathinfo($document->file_path, PATHINFO_EXTENSION) ?: 'pdf';
+        $type = $document->tipo === 'busta_paga'
+            ? 'busta-paga'
+            : (SocioDocument::TIPI[$document->tipo] ?? $document->tipo ?? 'documento');
+        $period = filled($document->periodo_riferimento)
+            ? '-'.Str::slug($document->periodo_riferimento)
+            : '';
+        $number = filled($document->numero_documento)
+            ? '-'.Str::slug($document->numero_documento)
+            : '';
+        $filename = sprintf(
+            '%04d-%s%s%s.%s',
+            $document->id,
+            Str::slug($type),
+            $period,
+            $number,
+            strtolower($extension),
+        );
+
+        return sprintf(
+            'SOCI/%s/%s/%s/%s',
+            $document->socio->stato === 'attivo' ? 'Attivi' : 'Archiviati',
+            $this->socioFolder($document->socio),
+            $this->folder('documenti'),
+            $filename,
+        );
+    }
+
+    private function payrollSourceS3Path(PayrollDistribution $distribution): string
+    {
+        $filename = sprintf(
+            '%04d-buste-paga-%s-%s',
+            $distribution->id,
+            Str::slug($distribution->period) ?: 'periodo-non-indicato',
+            $this->safeFilename($distribution->original_name ?: basename($distribution->source_path)),
+        );
+
+        return "BUSTE_PAGA/SORGENTI/{$filename}";
+    }
+
+    private function removeLegacySocioDocumentObject(SocioDocument $document): void
+    {
+        $canonicalPath = $this->socioDocumentS3Path($document);
+        $legacyPath = $this->socioS3Path($document->socio, 'documenti', $document->file_path);
+
+        if ($legacyPath === $canonicalPath) {
+            return;
+        }
+
+        try {
+            $disk = $this->disk();
+
+            if ($disk->exists($canonicalPath) && $disk->exists($legacyPath)) {
+                $disk->delete($legacyPath);
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Rimozione del vecchio nome oggetto S3 non riuscita.', [
+                'legacy_s3_path' => $legacyPath,
+                'canonical_s3_path' => $canonicalPath,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function assemblyS3Path(Assemblea $assemblea): string
+    {
+        $date = $assemblea->data_assemblea ?? now();
+
+        return sprintf(
+            'ASSEMBLEE/%s/%s/%s',
+            $date->format('Y'),
+            $date->format('m'),
+            basename($assemblea->file_path),
+        );
+    }
+
     private function workReportS3Path(WorkReport $report): string
     {
         $date = $report->data_intervento ?? now();
@@ -294,5 +431,13 @@ class S3ArchiveService
     private function folder(string $value): string
     {
         return Str::of($value)->ascii()->slug('-')->toString();
+    }
+
+    private function safeFilename(string $filename): string
+    {
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+
+        return (Str::slug($name) ?: 'documento').($extension ? '.'.strtolower($extension) : '');
     }
 }

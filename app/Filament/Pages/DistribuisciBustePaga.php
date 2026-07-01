@@ -119,7 +119,13 @@ class DistribuisciBustePaga extends Page
             return;
         }
 
-        $storedPath = $file->storeAs('payroll/sources', Str::uuid().'.pdf', 'local');
+        $period = Str::slug((string) $this->data['period']) ?: 'periodo-non-indicato';
+        $originalName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'buste-paga';
+        $storedPath = $file->storeAs(
+            'payroll/sources/'.now()->format('Y'),
+            now()->format('Ymd-His')."-{$period}-{$originalName}-".Str::lower(Str::random(8)).'.pdf',
+            'local',
+        );
         $distribution = PayrollDistribution::create([
             'user_id' => auth()->id(),
             'original_name' => $file->getClientOriginalName(),

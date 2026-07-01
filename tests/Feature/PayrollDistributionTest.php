@@ -163,6 +163,10 @@ class PayrollDistributionTest extends TestCase
         $document = SocioDocument::query()->whereBelongsTo($socio)->firstOrFail();
         $this->assertSame('busta_paga', $document->tipo);
         $this->assertSame('Giugno 2026', $document->periodo_riferimento);
+        $this->assertSame(
+            "busta-paga-giugno-2026-rossi-mario-soc-0001-{$distribution->id}.pdf",
+            basename($document->file_path),
+        );
         Storage::disk('local')->assertExists($document->file_path);
         $this->assertDatabaseHas('payroll_deliveries', [
             'payroll_distribution_id' => $distribution->id,
