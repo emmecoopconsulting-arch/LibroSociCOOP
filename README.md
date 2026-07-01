@@ -147,7 +147,7 @@ Intestazioni riconosciute:
 - Pagina Filament “Gestione Verbali” per generazione singola o massiva dei verbali mancanti.
 - Storico modifiche su tabella dedicata e activity log.
 - Distribuzione buste paga da PDF unico con OCR Tesseract locale, revisione
-  manuale delle associazioni e invio tramite Amazon SES SMTP.
+  manuale delle associazioni e invio tramite Amazon SES o SMTP tradizionale.
 
 ## Verifica
 

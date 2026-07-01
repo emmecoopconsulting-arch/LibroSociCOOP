@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'socio_id',
+    'payroll_distribution_id',
     'tipo',
+    'periodo_riferimento',
     'numero_documento',
     'data_rilascio',
     'data_scadenza',
@@ -24,6 +26,7 @@ class SocioDocument extends Model
         'codice_fiscale' => 'Codice fiscale',
         'permesso_soggiorno' => 'Permesso di soggiorno',
         'patente' => 'Patente',
+        'busta_paga' => 'Busta paga',
         'altro' => 'Altro documento',
     ];
 
@@ -51,6 +54,11 @@ class SocioDocument extends Model
     public function socio(): BelongsTo
     {
         return $this->belongsTo(Socio::class);
+    }
+
+    public function payrollDistribution(): BelongsTo
+    {
+        return $this->belongsTo(PayrollDistribution::class);
     }
 
     private function archiveOnS3(): void

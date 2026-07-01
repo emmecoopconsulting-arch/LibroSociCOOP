@@ -86,6 +86,10 @@ class DocumentsRelationManager extends RelationManager
                     ->label('Numero')
                     ->searchable()
                     ->toggleable(),
+                TextColumn::make('periodo_riferimento')
+                    ->label('Periodo')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('data_rilascio')
                     ->label('Rilascio')
                     ->date('d/m/Y')

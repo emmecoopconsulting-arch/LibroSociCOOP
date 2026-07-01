@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'user_id', 'original_name', 'source_path', 'period', 'status', 'total_pages',
-    'sent_count', 'failed_count', 'error', 'sent_at',
+    'sent_count', 'failed_count', 'skipped_count', 'error', 'sent_at',
 ])]
 class PayrollDistribution extends Model
 {
@@ -31,5 +31,10 @@ class PayrollDistribution extends Model
     public function deliveries(): HasMany
     {
         return $this->hasMany(PayrollDelivery::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(SocioDocument::class);
     }
 }

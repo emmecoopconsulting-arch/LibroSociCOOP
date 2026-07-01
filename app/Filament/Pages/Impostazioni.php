@@ -55,6 +55,14 @@ class Impostazioni extends Page
             'smtp_password' => null,
             'smtp_from_address' => AppSetting::string(AppSetting::SMTP_FROM_ADDRESS),
             'smtp_from_name' => AppSetting::string(AppSetting::SMTP_FROM_NAME),
+            'mail_provider' => AppSetting::string(AppSetting::MAIL_PROVIDER) ?: 'ses',
+            'traditional_smtp_host' => AppSetting::string(AppSetting::TRADITIONAL_SMTP_HOST),
+            'traditional_smtp_port' => AppSetting::int(AppSetting::TRADITIONAL_SMTP_PORT),
+            'traditional_smtp_scheme' => AppSetting::string(AppSetting::TRADITIONAL_SMTP_SCHEME) ?: 'smtp',
+            'traditional_smtp_username' => AppSetting::string(AppSetting::TRADITIONAL_SMTP_USERNAME),
+            'traditional_smtp_password' => null,
+            'traditional_smtp_from_address' => AppSetting::string(AppSetting::TRADITIONAL_SMTP_FROM_ADDRESS),
+            'traditional_smtp_from_name' => AppSetting::string(AppSetting::TRADITIONAL_SMTP_FROM_NAME),
         ]);
     }
 
@@ -117,8 +125,21 @@ class Impostazioni extends Page
                         Toggle::make('s3_use_path_style_endpoint')
                             ->label('Path style endpoint'),
                     ]),
-                Section::make('Invio buste paga — Amazon SES SMTP')
+                Section::make('Server email per le buste paga')
+                    ->description('Puoi passare da Amazon SES a un normale account SMTP senza perdere le relative configurazioni.')
+                    ->schema([
+                        Select::make('mail_provider')
+                            ->label('Provider attivo')
+                            ->options([
+                                'traditional' => 'SMTP tradizionale',
+                                'ses' => 'Amazon SES',
+                            ])
+                            ->required()
+                            ->live(),
+                    ]),
+                Section::make('Amazon SES SMTP')
                     ->description('Le credenziali SMTP di SES sono diverse dalle access key AWS. Il mittente deve essere verificato in Amazon SES.')
+                    ->visible(fn ($get): bool => $get('mail_provider') === 'ses')
                     ->columns(2)
                     ->schema([
                         TextInput::make('smtp_host')
@@ -149,6 +170,52 @@ class Impostazioni extends Page
                             ->email()
                             ->maxLength(255),
                         TextInput::make('smtp_from_name')
+                            ->label('Nome mittente')
+                            ->maxLength(255),
+                    ]),
+                Section::make('SMTP tradizionale')
+                    ->description('Usa i parametri forniti dal gestore della casella email, ad esempio Register.it, Aruba, Gmail Workspace o Microsoft 365.')
+                    ->visible(fn ($get): bool => $get('mail_provider') === 'traditional')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('traditional_smtp_host')
+                            ->label('Host SMTP')
+                            ->placeholder('smtp.example.it')
+                            ->required(fn ($get): bool => $get('mail_provider') === 'traditional')
+                            ->maxLength(255),
+                        TextInput::make('traditional_smtp_port')
+                            ->label('Porta')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(65535)
+                            ->required(fn ($get): bool => $get('mail_provider') === 'traditional')
+                            ->default(587),
+                        Select::make('traditional_smtp_scheme')
+                            ->label('Connessione')
+                            ->options([
+                                'smtp' => 'STARTTLS (solitamente porta 587)',
+                                'smtps' => 'TLS implicito (solitamente porta 465)',
+                                'none' => 'Non cifrata (solitamente porta 25)',
+                            ])
+                            ->required()
+                            ->default('smtp'),
+                        TextInput::make('traditional_smtp_username')
+                            ->label('Username')
+                            ->required(fn ($get): bool => $get('mail_provider') === 'traditional')
+                            ->maxLength(255),
+                        TextInput::make('traditional_smtp_password')
+                            ->label('Password')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Lasciare vuoto per mantenere la password già salvata.')
+                            ->required(fn ($get): bool => $get('mail_provider') === 'traditional' && blank(AppSetting::traditionalSmtpPassword()))
+                            ->maxLength(255),
+                        TextInput::make('traditional_smtp_from_address')
+                            ->label('Email mittente')
+                            ->email()
+                            ->required(fn ($get): bool => $get('mail_provider') === 'traditional')
+                            ->maxLength(255),
+                        TextInput::make('traditional_smtp_from_name')
                             ->label('Nome mittente')
                             ->maxLength(255),
                     ]),
@@ -336,5 +403,13 @@ class Impostazioni extends Page
         AppSetting::setSmtpPassword($this->nullableString($data['smtp_password'] ?? null));
         AppSetting::setValue(AppSetting::SMTP_FROM_ADDRESS, $this->nullableString($data['smtp_from_address'] ?? null));
         AppSetting::setValue(AppSetting::SMTP_FROM_NAME, $this->nullableString($data['smtp_from_name'] ?? null));
+        AppSetting::setValue(AppSetting::MAIL_PROVIDER, ($data['mail_provider'] ?? 'ses') === 'traditional' ? 'traditional' : 'ses');
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_HOST, $this->nullableString($data['traditional_smtp_host'] ?? null));
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_PORT, (int) ($data['traditional_smtp_port'] ?? 587));
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_SCHEME, $this->nullableString($data['traditional_smtp_scheme'] ?? null));
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_USERNAME, $this->nullableString($data['traditional_smtp_username'] ?? null));
+        AppSetting::setTraditionalSmtpPassword($this->nullableString($data['traditional_smtp_password'] ?? null));
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_FROM_ADDRESS, $this->nullableString($data['traditional_smtp_from_address'] ?? null));
+        AppSetting::setValue(AppSetting::TRADITIONAL_SMTP_FROM_NAME, $this->nullableString($data['traditional_smtp_from_name'] ?? null));
     }
 }

@@ -11,10 +11,10 @@ use RuntimeException;
 
 class PayrollMailService
 {
-    public function __construct(private readonly LocalPayrollOcrService $ocrService) {}
+    public function __construct(private readonly PayrollDocumentService $documentService) {}
 
     /**
-     * @return array{sent: int, failed: int}
+     * @return array{sent: int, failed: int, skipped: int}
      */
     public function distribute(PayrollDistribution $distribution): array
     {
@@ -25,33 +25,42 @@ class PayrollMailService
             throw new RuntimeException("Restano {$unassigned} pagine da associare.");
         }
 
-        $missingEmail = $distribution->pages
+        $documents = $this->documentService->sync($distribution);
+        $hasEmailRecipients = $distribution->pages
             ->pluck('socio')
-            ->filter()
-            ->unique('id')
-            ->filter(fn ($socio): bool => blank($socio->email));
+            ->filter(fn ($socio): bool => filled($socio?->email))
+            ->isNotEmpty();
 
-        if ($missingEmail->isNotEmpty()) {
-            throw new RuntimeException('Email mancante per: '.$missingEmail->pluck('nome_completo')->join(', '));
+        if ($hasEmailRecipients) {
+            $this->configureMailer();
         }
 
-        $this->configureMailer();
-        $source = Storage::disk('local')->path($distribution->source_path);
         $distribution->update(['status' => 'sending', 'error' => null]);
         $sent = 0;
         $failed = 0;
+        $skipped = 0;
 
         foreach ($distribution->pages->groupBy('socio_id') as $socioId => $pages) {
             $socio = $pages->first()->socio;
-            $relativePath = "payroll/{$distribution->id}/deliveries/socio-{$socioId}.pdf";
-            Storage::disk('local')->makeDirectory(dirname($relativePath));
+            $relativePath = $documents[(int) $socioId]->file_path;
             $absolutePath = Storage::disk('local')->path($relativePath);
-            $this->ocrService->extractPages($source, $pages->pluck('page_number')->all(), $absolutePath);
 
             $delivery = $distribution->deliveries()->firstOrNew(['socio_id' => $socio->id]);
 
             if ($delivery->exists && $delivery->status === 'sent') {
                 $sent++;
+
+                continue;
+            }
+
+            if (blank($socio->email)) {
+                $delivery->fill([
+                    'email' => '',
+                    'attachment_path' => $relativePath,
+                    'status' => 'skipped_no_email',
+                    'error' => 'Documento archiviato nello storico del socio; email non presente.',
+                ])->save();
+                $skipped++;
 
                 continue;
             }
@@ -80,44 +89,50 @@ class PayrollMailService
             'status' => $failed > 0 ? 'partial' : 'sent',
             'sent_count' => $sent,
             'failed_count' => $failed,
+            'skipped_count' => $skipped,
             'sent_at' => $failed === 0 ? now() : null,
         ]);
 
-        return compact('sent', 'failed');
+        return compact('sent', 'failed', 'skipped');
     }
 
     public function sendTest(string $recipient): void
     {
         $this->configureMailer();
         Mail::mailer('payroll')->raw(
-            'Configurazione Amazon SES SMTP verificata correttamente.',
+            'Configurazione SMTP verificata correttamente.',
             fn ($message) => $message->to($recipient)->subject('Test invio buste paga'),
         );
     }
 
     private function configureMailer(): void
     {
-        $host = AppSetting::string(AppSetting::SMTP_HOST);
-        $username = AppSetting::string(AppSetting::SMTP_USERNAME);
-        $password = AppSetting::smtpPassword();
-        $from = AppSetting::string(AppSetting::SMTP_FROM_ADDRESS);
+        $traditional = AppSetting::string(AppSetting::MAIL_PROVIDER) === 'traditional';
+        $host = AppSetting::string($traditional ? AppSetting::TRADITIONAL_SMTP_HOST : AppSetting::SMTP_HOST);
+        $username = AppSetting::string($traditional ? AppSetting::TRADITIONAL_SMTP_USERNAME : AppSetting::SMTP_USERNAME);
+        $password = $traditional ? AppSetting::traditionalSmtpPassword() : AppSetting::smtpPassword();
+        $from = AppSetting::string($traditional ? AppSetting::TRADITIONAL_SMTP_FROM_ADDRESS : AppSetting::SMTP_FROM_ADDRESS);
+        $scheme = AppSetting::string($traditional ? AppSetting::TRADITIONAL_SMTP_SCHEME : AppSetting::SMTP_SCHEME) ?: 'smtp';
+        $port = AppSetting::int($traditional ? AppSetting::TRADITIONAL_SMTP_PORT : AppSetting::SMTP_PORT);
+        $fromName = AppSetting::string($traditional ? AppSetting::TRADITIONAL_SMTP_FROM_NAME : AppSetting::SMTP_FROM_NAME);
 
         if (blank($host) || blank($username) || blank($password) || blank($from)) {
-            throw new RuntimeException('Configurazione SMTP incompleta. Compilarla in Impostazioni.');
+            throw new RuntimeException('Configurazione del provider SMTP attivo incompleta. Compilarla in Impostazioni.');
         }
 
         config([
             'mail.mailers.payroll' => [
                 'transport' => 'smtp',
-                'scheme' => AppSetting::string(AppSetting::SMTP_SCHEME) ?: 'smtp',
+                'scheme' => $scheme === 'none' ? 'smtp' : $scheme,
                 'host' => $host,
-                'port' => AppSetting::int(AppSetting::SMTP_PORT),
+                'port' => $port,
                 'username' => $username,
                 'password' => $password,
                 'timeout' => 30,
+                'auto_tls' => $scheme !== 'none',
             ],
             'mail.from.address' => $from,
-            'mail.from.name' => AppSetting::string(AppSetting::SMTP_FROM_NAME) ?: config('app.name'),
+            'mail.from.name' => $fromName ?: config('app.name'),
         ]);
         Mail::purge('payroll');
     }

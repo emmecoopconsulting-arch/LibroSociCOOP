@@ -46,6 +46,22 @@ class AppSetting extends Model
 
     public const SMTP_FROM_NAME = 'smtp_from_name';
 
+    public const MAIL_PROVIDER = 'mail_provider';
+
+    public const TRADITIONAL_SMTP_HOST = 'traditional_smtp_host';
+
+    public const TRADITIONAL_SMTP_PORT = 'traditional_smtp_port';
+
+    public const TRADITIONAL_SMTP_SCHEME = 'traditional_smtp_scheme';
+
+    public const TRADITIONAL_SMTP_USERNAME = 'traditional_smtp_username';
+
+    public const TRADITIONAL_SMTP_PASSWORD = 'traditional_smtp_password';
+
+    public const TRADITIONAL_SMTP_FROM_ADDRESS = 'traditional_smtp_from_address';
+
+    public const TRADITIONAL_SMTP_FROM_NAME = 'traditional_smtp_from_name';
+
     public const DEFAULTS = [
         self::PERMESSO_SOGGIORNO_ALERT_DAYS => 90,
         self::VISITA_MEDICA_ALERT_DAYS => 60,
@@ -72,6 +88,14 @@ class AppSetting extends Model
         self::SMTP_PASSWORD => null,
         self::SMTP_FROM_ADDRESS => null,
         self::SMTP_FROM_NAME => 'Libro Soci COOP',
+        self::MAIL_PROVIDER => 'ses',
+        self::TRADITIONAL_SMTP_HOST => null,
+        self::TRADITIONAL_SMTP_PORT => 587,
+        self::TRADITIONAL_SMTP_SCHEME => 'smtp',
+        self::TRADITIONAL_SMTP_USERNAME => null,
+        self::TRADITIONAL_SMTP_PASSWORD => null,
+        self::TRADITIONAL_SMTP_FROM_ADDRESS => null,
+        self::TRADITIONAL_SMTP_FROM_NAME => 'Libro Soci COOP',
     ];
 
     protected function casts(): array
@@ -172,6 +196,28 @@ class AppSetting extends Model
     {
         if (filled($value)) {
             static::setValue(static::SMTP_PASSWORD, Crypt::encryptString($value));
+        }
+    }
+
+    public static function traditionalSmtpPassword(): ?string
+    {
+        $encrypted = static::string(static::TRADITIONAL_SMTP_PASSWORD);
+
+        if (blank($encrypted)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($encrypted);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public static function setTraditionalSmtpPassword(?string $value): void
+    {
+        if (filled($value)) {
+            static::setValue(static::TRADITIONAL_SMTP_PASSWORD, Crypt::encryptString($value));
         }
     }
 }

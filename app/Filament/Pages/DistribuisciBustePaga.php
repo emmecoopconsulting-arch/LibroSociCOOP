@@ -6,6 +6,7 @@ use App\Models\PayrollDistribution;
 use App\Models\PayrollDistributionPage;
 use App\Models\Socio;
 use App\Services\LocalPayrollOcrService;
+use App\Services\PayrollDocumentService;
 use App\Services\PayrollMailService;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -19,6 +20,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -117,6 +119,7 @@ class DistribuisciBustePaga extends Page
 
         try {
             $ocrService->analyze($distribution);
+            app(PayrollDocumentService::class)->sync($distribution->fresh());
             Notification::make()
                 ->title('OCR completato')
                 ->body("Analizzate {$distribution->fresh()->total_pages} pagine. Controlla tutte le associazioni prima dell’invio.")
@@ -131,6 +134,18 @@ class DistribuisciBustePaga extends Page
 
     public function setSocio(int $pageId, mixed $socioId): void
     {
+        $distribution = $this->currentDistribution();
+
+        if ($distribution?->deliveries->contains('status', 'sent')) {
+            Notification::make()
+                ->title('Assegnazioni bloccate')
+                ->body('Almeno una busta è già stata inviata. Le associazioni non possono più essere modificate.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $page = PayrollDistributionPage::query()
             ->where('payroll_distribution_id', $this->distributionId)
             ->findOrFail($pageId);
@@ -140,6 +155,8 @@ class DistribuisciBustePaga extends Page
             'match_confidence' => filled($socioId) ? 100 : 0,
             'match_reason' => filled($socioId) ? 'Confermato manualmente' : 'Da associare',
         ]);
+
+        app(PayrollDocumentService::class)->sync($page->distribution);
     }
 
     public function distribute(PayrollMailService $mailService): void
@@ -154,7 +171,7 @@ class DistribuisciBustePaga extends Page
             $result = $mailService->distribute($distribution);
             $notification = Notification::make()
                 ->title('Distribuzione completata')
-                ->body("Inviate: {$result['sent']}. Non riuscite: {$result['failed']}.");
+                ->body("Inviate: {$result['sent']}. Senza email: {$result['skipped']}. Non riuscite: {$result['failed']}.");
             $result['failed'] > 0 ? $notification->warning() : $notification->success();
             $notification->send();
         } catch (\Throwable $exception) {
@@ -165,7 +182,7 @@ class DistribuisciBustePaga extends Page
     public function currentDistribution(): ?PayrollDistribution
     {
         return $this->distributionId
-            ? PayrollDistribution::with(['pages.socio', 'deliveries'])->find($this->distributionId)
+            ? PayrollDistribution::with(['pages.socio', 'deliveries', 'documents'])->find($this->distributionId)
             : null;
     }
 
@@ -182,6 +199,26 @@ class DistribuisciBustePaga extends Page
                 $socio->id => "{$socio->cognome} {$socio->nome}".(filled($socio->email) ? " — {$socio->email}" : ' — email mancante'),
             ])
             ->all();
+    }
+
+    /**
+     * @return Collection<int, PayrollDistribution>
+     */
+    public function distributions()
+    {
+        return PayrollDistribution::query()
+            ->withCount([
+                'pages',
+                'pages as assigned_pages_count' => fn ($query) => $query->whereNotNull('socio_id'),
+            ])
+            ->latest()
+            ->limit(50)
+            ->get();
+    }
+
+    public function selectDistribution(int $distributionId): void
+    {
+        $this->distributionId = PayrollDistribution::query()->findOrFail($distributionId)->id;
     }
 
     public static function canAccess(): bool
