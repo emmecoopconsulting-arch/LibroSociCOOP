@@ -9,6 +9,7 @@ use App\Models\Socio;
 use App\Models\SocioDocument;
 use App\Services\LocalPayrollOcrService;
 use App\Services\PayrollDocumentService;
+use App\Services\PayrollDeliveryReceiptService;
 use App\Services\PayrollMailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -249,6 +250,36 @@ class PayrollDistributionTest extends TestCase
             'socio_id' => $alreadySent->id,
             'status' => 'sent',
         ]);
+    }
+
+    public function test_delivery_receipt_can_be_generated_from_an_existing_completed_distribution(): void
+    {
+        $socio = Socio::create($this->socioData(['email' => 'mario@example.test']));
+        $distribution = PayrollDistribution::create([
+            'original_name' => 'buste-giugno.pdf',
+            'source_path' => 'payroll/sources/buste-giugno.pdf',
+            'period' => 'Giugno 2026',
+            'status' => 'sent',
+            'sent_count' => 1,
+            'sent_at' => now()->subMonth(),
+        ]);
+        $distribution->deliveries()->create([
+            'socio_id' => $socio->id,
+            'email' => 'mario@example.test',
+            'attachment_path' => 'payroll/1/mario.pdf',
+            'status' => 'sent',
+            'sent_at' => now()->subMonth(),
+        ]);
+
+        $html = view('pdf.payroll-delivery-receipt', [
+            'distribution' => $distribution->load(['deliveries.socio', 'user']),
+            'deliveries' => $distribution->deliveries,
+        ])->render();
+        $pdf = app(PayrollDeliveryReceiptService::class)->output($distribution);
+
+        $this->assertStringContainsString('Invio elaborato senza errori rilevati', $html);
+        $this->assertStringContainsString('mario@example.test', $html);
+        $this->assertStringStartsWith('%PDF-', $pdf);
     }
 
     private function socioData(array $overrides = []): array

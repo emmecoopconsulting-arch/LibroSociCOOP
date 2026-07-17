@@ -299,6 +299,15 @@
                             </td>
                             <td class="whitespace-nowrap border-b border-r border-gray-100 px-5 py-4 text-gray-600 dark:border-white/10 dark:text-gray-300">{{ $item->created_at->format('d/m/Y H:i') }}</td>
                             <td class="border-b border-gray-100 px-5 py-4 text-right dark:border-white/10">
+                                @if ($item->sent_count + $item->failed_count + $item->skipped_count > 0)
+                                    <button
+                                        type="button"
+                                        class="mr-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200"
+                                        wire:click="downloadReceipt({{ $item->id }})"
+                                    >
+                                        Ricevuta PDF
+                                    </button>
+                                @endif
                                 <button
                                     type="button"
                                     class="rounded-lg border border-primary-300 bg-white px-3 py-1.5 font-semibold text-primary-700 shadow-sm transition hover:bg-primary-50 dark:bg-gray-900"
@@ -472,9 +481,14 @@
             </div>
 
             @if ($distribution->deliveries->isNotEmpty())
-                <div class="mt-5 text-sm">
-                    Inviate: {{ $distribution->deliveries->where('status', 'sent')->count() }} ·
-                    Errori: {{ $distribution->deliveries->where('status', 'failed')->count() }}
+                <div class="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div>
+                        Inviate: {{ $distribution->deliveries->where('status', 'sent')->count() }} ·
+                        Errori: {{ $distribution->deliveries->where('status', 'failed')->count() }}
+                    </div>
+                    <button type="button" wire:click="downloadReceipt" class="payroll-print-button">
+                        ↓ Scarica riepilogo invio PDF
+                    </button>
                 </div>
             @endif
         </x-filament::section>

@@ -7,6 +7,7 @@ use App\Models\PayrollDistributionPage;
 use App\Models\Socio;
 use App\Services\LocalPayrollOcrService;
 use App\Services\PayrollDocumentService;
+use App\Services\PayrollDeliveryReceiptService;
 use App\Services\PayrollMailService;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -242,10 +243,33 @@ class DistribuisciBustePaga extends Page
         return Storage::disk('local')->download($path, "buste-senza-email-{$period}.pdf");
     }
 
+    public function downloadReceipt(PayrollDeliveryReceiptService $receiptService, ?int $distributionId = null): ?StreamedResponse
+    {
+        $distribution = PayrollDistribution::with(['deliveries.socio', 'user'])
+            ->find($distributionId ?? $this->distributionId);
+
+        if (! $distribution || $distribution->deliveries->isEmpty()) {
+            Notification::make()
+                ->title('Riepilogo non disponibile')
+                ->body('Per questa pratica non risultano ancora tentativi di invio.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
+        $filename = 'riepilogo-invio-buste-'.(Str::slug($distribution->period) ?: $distribution->id).'.pdf';
+        $pdf = $receiptService->output($distribution);
+
+        return response()->streamDownload(fn () => print $pdf, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
     public function currentDistribution(): ?PayrollDistribution
     {
         return $this->distributionId
-            ? PayrollDistribution::with(['pages.socio', 'deliveries', 'documents'])->find($this->distributionId)
+            ? PayrollDistribution::with(['pages.socio', 'deliveries.socio', 'documents'])->find($this->distributionId)
             : null;
     }
 
