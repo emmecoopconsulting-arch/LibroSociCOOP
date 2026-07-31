@@ -3,6 +3,14 @@ setlocal
 
 cd /d "%~dp0"
 
+echo Salvataggio chiave di cifratura...
+for /f "usebackq delims=" %%K in (`docker compose exec -T app sh -c "sed -n 's/^APP_KEY=//p' /var/www/html/.env 2^>/dev/null ^| head -n 1" 2^>nul`) do set "CURRENT_APP_KEY=%%K"
+
+if defined CURRENT_APP_KEY (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$path = Join-Path (Get-Location) '.env'; $key = $env:CURRENT_APP_KEY; $lines = if (Test-Path $path) { @(Get-Content $path) } else { @() }; $found = $false; $updated = foreach ($line in $lines) { if ($line -match '^APP_KEY=') { $found = $true; 'APP_KEY=' + $key } else { $line } }; if (-not $found) { $updated += 'APP_KEY=' + $key }; Set-Content -Path $path -Value $updated -Encoding ascii"
+    if errorlevel 1 goto error
+)
+
 echo Scaricamento nuova immagine Docker...
 docker compose pull
 if errorlevel 1 goto error

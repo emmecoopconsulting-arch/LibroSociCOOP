@@ -73,6 +73,8 @@ http://localhost:8000/admin
 Il database MySQL è esposto sulla porta locale `3307` e i dati vengono salvati nel volume Docker `mysql_data`.
 Al primo avvio il container genera la chiave Laravel, esegue le migrazioni e prepara l'utente amministratore iniziale. Aprendo il pannello viene richiesto di impostare nome utente e password definitivi.
 
+La chiave di cifratura dell'applicazione viene conservata nel volume Docker `app_storage`, così le credenziali S3 e SMTP salvate nelle impostazioni restano leggibili dopo il riavvio o l'aggiornamento del container. `update.bat` salva inoltre nel file `.env` dell'installazione la chiave delle versioni precedenti prima di sostituire il container. Il file `.env` non deve essere cancellato o condiviso.
+
 Comandi utili:
 
 ```bash

@@ -5,6 +5,9 @@ services:
     ports:
       - "8000:80"
     environment:
+      # Se presente nel file .env dell'host, resta stabile anche tra gli aggiornamenti.
+      # In assenza viene generata e conservata automaticamente nel volume app_storage.
+      APP_KEY: "${APP_KEY:-}"
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8000
