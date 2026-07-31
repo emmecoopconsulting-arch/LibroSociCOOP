@@ -18,6 +18,7 @@ class PayrollMail extends Mailable
         public Socio $socio,
         public string $period,
         public string $attachmentPath,
+        public ?string $additionalMessage = null,
     ) {}
 
     public function envelope(): Envelope

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'user_id', 'original_name', 'source_path', 'period', 'status', 'total_pages',
+    'user_id', 'original_name', 'source_path', 'period', 'additional_message', 'status', 'total_pages',
     'sent_count', 'failed_count', 'skipped_count', 'error', 'sent_at',
 ])]
 class PayrollDistribution extends Model

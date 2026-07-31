@@ -8,8 +8,8 @@ use App\Models\PayrollDistribution;
 use App\Models\Socio;
 use App\Models\SocioDocument;
 use App\Services\LocalPayrollOcrService;
-use App\Services\PayrollDocumentService;
 use App\Services\PayrollDeliveryReceiptService;
+use App\Services\PayrollDocumentService;
 use App\Services\PayrollMailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -106,6 +106,17 @@ class PayrollDistributionTest extends TestCase
             'segreto-smtp',
             AppSetting::query()->where('key', AppSetting::SMTP_PASSWORD)->firstOrFail()->value,
         );
+    }
+
+    public function test_payroll_mail_renders_the_common_additional_message(): void
+    {
+        $socio = Socio::create($this->socioData());
+        $mail = new PayrollMail($socio, 'Luglio 2026', '/tmp/busta.pdf', "Avviso comune.\nSeconda riga.");
+
+        $html = $mail->render();
+
+        $this->assertStringContainsString('Avviso comune.', $html);
+        $this->assertStringContainsString('Seconda riga.', $html);
     }
 
     public function test_traditional_smtp_can_be_selected_without_overwriting_ses(): void

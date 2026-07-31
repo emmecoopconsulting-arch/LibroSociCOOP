@@ -6,12 +6,13 @@ use App\Models\PayrollDistribution;
 use App\Models\PayrollDistributionPage;
 use App\Models\Socio;
 use App\Services\LocalPayrollOcrService;
-use App\Services\PayrollDocumentService;
 use App\Services\PayrollDeliveryReceiptService;
+use App\Services\PayrollDocumentService;
 use App\Services\PayrollMailService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -41,7 +42,7 @@ class DistribuisciBustePaga extends Page
 
     protected string $view = 'filament.pages.distribuisci-buste-paga';
 
-    public ?array $data = ['period' => null, 'file' => null];
+    public ?array $data = ['period' => null, 'file' => null, 'additional_message' => null];
 
     public ?int $distributionId = null;
 
@@ -68,6 +69,12 @@ class DistribuisciBustePaga extends Page
                             ->acceptedFileTypes(['application/pdf'])
                             ->storeFiles(false)
                             ->required(),
+                        Textarea::make('additional_message')
+                            ->label('Messaggio aggiuntivo nelle email')
+                            ->helperText('Opzionale. Lo stesso testo verrà inserito nell’email di ogni socio.')
+                            ->rows(4)
+                            ->maxLength(5000)
+                            ->columnSpanFull(),
                     ]),
             ])
             ->statePath('data');
@@ -132,6 +139,9 @@ class DistribuisciBustePaga extends Page
             'original_name' => $file->getClientOriginalName(),
             'source_path' => $storedPath,
             'period' => trim((string) $this->data['period']),
+            'additional_message' => filled($this->data['additional_message'] ?? null)
+                ? trim((string) $this->data['additional_message'])
+                : null,
             'status' => 'processing',
         ]);
         $this->distributionId = $distribution->id;
