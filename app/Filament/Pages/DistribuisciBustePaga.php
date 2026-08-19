@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -45,6 +46,9 @@ class DistribuisciBustePaga extends Page
     public ?array $data = ['period' => null, 'file' => null, 'additional_message' => null];
 
     public ?int $distributionId = null;
+
+    /** @var array<int, int|string|null> */
+    public array $assignments = [];
 
     public function mount(): void
     {
@@ -98,6 +102,7 @@ class DistribuisciBustePaga extends Page
                             ->color('success')
                             ->visible(fn (): bool => $this->distributionId !== null
                                 && ! in_array($this->currentDistribution()?->status, ['sent', 'partial'], true))
+                            ->disabled(fn (): bool => $this->hasUnsavedAssignments())
                             ->requiresConfirmation()
                             ->modalHeading('Inviare le buste paga?')
                             ->modalDescription('Ogni socio riceverà esclusivamente le pagine a lui associate. L’operazione verrà registrata.')
@@ -149,6 +154,7 @@ class DistribuisciBustePaga extends Page
         try {
             $ocrService->analyze($distribution);
             app(PayrollDocumentService::class)->sync($distribution->fresh());
+            $this->loadAssignments();
             Notification::make()
                 ->title('OCR completato')
                 ->body("Analizzate {$distribution->fresh()->total_pages} pagine. Controlla tutte le associazioni prima dell’invio.")
@@ -161,11 +167,15 @@ class DistribuisciBustePaga extends Page
         }
     }
 
-    public function setSocio(int $pageId, mixed $socioId): void
+    public function saveAssignments(PayrollDocumentService $documentService): void
     {
         $distribution = $this->currentDistribution();
 
-        if ($distribution?->deliveries->contains('status', 'sent')) {
+        if (! $distribution) {
+            return;
+        }
+
+        if ($distribution->deliveries->contains('status', 'sent')) {
             Notification::make()
                 ->title('Assegnazioni bloccate')
                 ->body('Almeno una busta è già stata inviata. Le associazioni non possono più essere modificate.')
@@ -175,17 +185,53 @@ class DistribuisciBustePaga extends Page
             return;
         }
 
-        $page = PayrollDistributionPage::query()
-            ->where('payroll_distribution_id', $this->distributionId)
-            ->findOrFail($pageId);
+        $pages = $distribution->pages;
+        $selectedSocioIds = collect($this->assignments)
+            ->filter(fn (mixed $socioId): bool => filled($socioId))
+            ->map(fn (mixed $socioId): int => (int) $socioId)
+            ->unique();
+        $validSocioIds = Socio::query()
+            ->whereKey($selectedSocioIds)
+            ->pluck('id');
 
-        $page->update([
-            'socio_id' => filled($socioId) ? (int) $socioId : null,
-            'match_confidence' => filled($socioId) ? 100 : 0,
-            'match_reason' => filled($socioId) ? 'Confermato manualmente' : 'Da associare',
-        ]);
+        if ($validSocioIds->count() !== $selectedSocioIds->count()) {
+            Notification::make()
+                ->title('Assegnazioni non valide')
+                ->body('Uno dei soci selezionati non è più disponibile. Ricarica la pratica e riprova.')
+                ->danger()
+                ->send();
 
-        app(PayrollDocumentService::class)->sync($page->distribution);
+            return;
+        }
+
+        DB::transaction(function () use ($pages): void {
+            foreach ($pages as $page) {
+                $socioId = $this->assignments[$page->id] ?? null;
+                $socioId = filled($socioId) ? (int) $socioId : null;
+
+                if ($page->socio_id === $socioId) {
+                    continue;
+                }
+
+                $page->update([
+                    'socio_id' => $socioId,
+                    'match_confidence' => $socioId ? 100 : 0,
+                    'match_reason' => $socioId ? 'Confermato manualmente' : 'Da associare',
+                ]);
+            }
+        });
+
+        $documentService->sync($distribution->fresh());
+        $this->loadAssignments();
+
+        $remaining = $distribution->fresh()->pages()->whereNull('socio_id')->count();
+        Notification::make()
+            ->title('Assegnazioni salvate')
+            ->body($remaining > 0
+                ? "Restano {$remaining} pagine da associare prima dell’invio."
+                : 'Tutte le pagine sono associate. Ora puoi confermare l’invio.')
+            ->success()
+            ->send();
     }
 
     public function distribute(PayrollMailService $mailService): void
@@ -193,6 +239,16 @@ class DistribuisciBustePaga extends Page
         $distribution = $this->currentDistribution();
 
         if (! $distribution) {
+            return;
+        }
+
+        if ($this->hasUnsavedAssignments()) {
+            Notification::make()
+                ->title('Salva prima le assegnazioni')
+                ->body('Hai modifiche non salvate. Usa “Salva assegnazioni” prima di procedere con l’invio.')
+                ->warning()
+                ->send();
+
             return;
         }
 
@@ -316,6 +372,29 @@ class DistribuisciBustePaga extends Page
     public function selectDistribution(int $distributionId): void
     {
         $this->distributionId = PayrollDistribution::query()->findOrFail($distributionId)->id;
+        $this->loadAssignments();
+    }
+
+    public function hasUnsavedAssignments(): bool
+    {
+        if (! $this->distributionId) {
+            return false;
+        }
+
+        $saved = PayrollDistributionPage::query()
+            ->where('payroll_distribution_id', $this->distributionId)
+            ->pluck('socio_id', 'id')
+            ->map(fn (mixed $socioId): ?int => filled($socioId) ? (int) $socioId : null)
+            ->all();
+        $pending = collect(array_keys($saved))
+            ->mapWithKeys(function (int|string $pageId): array {
+                $socioId = $this->assignments[(int) $pageId] ?? null;
+
+                return [(int) $pageId => filled($socioId) ? (int) $socioId : null];
+            })
+            ->all();
+
+        return $saved !== $pending;
     }
 
     public static function canAccess(): bool
@@ -336,5 +415,16 @@ class DistribuisciBustePaga extends Page
         }
 
         return $file instanceof TemporaryUploadedFile ? $file : null;
+    }
+
+    private function loadAssignments(): void
+    {
+        $this->assignments = $this->distributionId
+            ? PayrollDistributionPage::query()
+                ->where('payroll_distribution_id', $this->distributionId)
+                ->pluck('socio_id', 'id')
+                ->map(fn (mixed $socioId): ?int => filled($socioId) ? (int) $socioId : null)
+                ->all()
+            : [];
     }
 }

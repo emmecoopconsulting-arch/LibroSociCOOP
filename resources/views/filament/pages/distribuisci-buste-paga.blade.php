@@ -422,12 +422,12 @@
                                 <td class="border-b border-r border-gray-100 px-5 py-4 dark:border-white/10">
                                     <select
                                         class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-white/20 dark:bg-gray-900"
-                                        wire:change="setSocio({{ $page->id }}, $event.target.value)"
+                                        wire:model.live="assignments.{{ $page->id }}"
                                         @disabled($distribution->deliveries->contains('status', 'sent'))
                                     >
                                         <option value="">— Da associare —</option>
                                         @foreach ($this->socioOptions() as $id => $label)
-                                            <option value="{{ $id }}" @selected((int) $page->socio_id === (int) $id)>
+                                            <option value="{{ $id }}">
                                                 {{ $label }}
                                             </option>
                                         @endforeach
@@ -479,6 +479,24 @@
                 </table>
                 </div>
             </div>
+
+            @if (! $distribution->deliveries->contains('status', 'sent'))
+                <div class="mt-5 flex flex-wrap items-center justify-end gap-3">
+                    @if ($this->hasUnsavedAssignments())
+                        <span class="text-sm font-medium text-warning-700">Hai modifiche non salvate</span>
+                    @endif
+                    <button
+                        type="button"
+                        class="payroll-retry-button"
+                        wire:click="saveAssignments"
+                        wire:loading.attr="disabled"
+                        wire:target="saveAssignments"
+                    >
+                        <span wire:loading.remove wire:target="saveAssignments">Salva assegnazioni</span>
+                        <span wire:loading wire:target="saveAssignments">Salvataggio…</span>
+                    </button>
+                </div>
+            @endif
 
             @if ($distribution->deliveries->isNotEmpty())
                 <div class="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
