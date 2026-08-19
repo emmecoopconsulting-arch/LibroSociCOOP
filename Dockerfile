@@ -12,7 +12,10 @@ RUN npm run build
 
 FROM php:8.4-apache
 
+ARG APP_VERSION=development
+
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+ENV APP_VERSION=${APP_VERSION}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

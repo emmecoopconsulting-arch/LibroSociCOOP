@@ -62,10 +62,10 @@ class Aggiornamenti extends Page
     {
         try {
             $this->log = $service->update();
-            $this->status = $service->check();
 
             Notification::make()
-                ->title('Aggiornamento completato')
+                ->title('Aggiornamento avviato')
+                ->body('Il nuovo container verrà avviato automaticamente. Attendi qualche secondo e ricarica la pagina.')
                 ->success()
                 ->send();
         } catch (Throwable $exception) {

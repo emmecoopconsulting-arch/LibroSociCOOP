@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -12,6 +14,10 @@ class ApplicationUpdateService
      */
     public function check(): array
     {
+        if ($this->isDocker()) {
+            return $this->checkDockerImage();
+        }
+
         if (! $this->isGitRepository()) {
             return [
                 'available' => false,
@@ -21,10 +27,8 @@ class ApplicationUpdateService
                 'branch' => '-',
                 'dirty' => false,
                 'can_update' => false,
-                'update_command' => $this->isDocker() ? '.\update.bat' : null,
-                'message' => $this->isDocker()
-                    ? 'L\'app gira in Docker: il container viene aggiornato scaricando la nuova immagine. Esegui update.bat dalla cartella dove si trova docker-compose.yml.'
-                    : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.',
+                'update_command' => null,
+                'message' => 'Aggiornamento automatico non disponibile: questa cartella non è collegata a GitHub.',
             ];
         }
 
@@ -47,21 +51,19 @@ class ApplicationUpdateService
             'dirty' => $dirty,
             'can_update' => true,
             'update_command' => null,
-            'message' => $behind > 0
-                ? "Sono disponibili {$behind} aggiornamenti."
-                : 'Applicazione già aggiornata.',
+            'message' => $behind > 0 ? "Sono disponibili {$behind} aggiornamenti." : 'Applicazione già aggiornata.',
         ];
     }
 
-    /**
-     * @return array<int, array{command: string, output: string}>
-     */
+    /** @return array<int, array{command: string, output: string}> */
     public function update(): array
     {
+        if ($this->isDocker()) {
+            return $this->triggerDockerUpdate();
+        }
+
         if (! $this->isGitRepository()) {
-            throw new RuntimeException($this->isDocker()
-                ? 'L\'app gira in Docker: esegui update.bat dalla cartella dove si trova docker-compose.yml.'
-                : 'Aggiornamento automatico non disponibile: questa cartella non e collegata a GitHub. Installa il progetto con git clone, non scaricandolo come ZIP.');
+            throw new RuntimeException('Aggiornamento automatico non disponibile: questa cartella non è collegata a GitHub.');
         }
 
         $check = $this->check();
@@ -80,14 +82,116 @@ class ApplicationUpdateService
         ];
     }
 
+    private function checkDockerImage(): array
+    {
+        $current = (string) config('update.current_version', 'development');
+        $remote = $this->latestSuccessfulDockerVersion();
+        $versionKnown = preg_match('/^[0-9a-f]{40}$/i', $current) === 1;
+        $available = $versionKnown && ! hash_equals(strtolower($current), strtolower($remote));
+        $configured = filled(config('update.webhook_url'));
+
+        $message = match (true) {
+            ! $versionKnown => 'Questa immagine non contiene ancora un identificativo di versione. Aggiornala una volta da Portainer.',
+            $available && ! $configured => 'È disponibile una nuova versione, ma il collegamento di aggiornamento non è ancora configurato.',
+            $available => 'È disponibile una nuova versione. Puoi installarla ora.',
+            default => 'Applicazione già aggiornata.',
+        };
+
+        return [
+            'available' => $available,
+            'current' => $this->shortVersion($current),
+            'remote' => $this->shortVersion($remote),
+            'behind' => $available ? 1 : 0,
+            'branch' => (string) config('update.github_branch', 'main'),
+            'dirty' => false,
+            'can_update' => $configured,
+            'update_command' => null,
+            'message' => $message,
+        ];
+    }
+
+    private function latestSuccessfulDockerVersion(): string
+    {
+        $repository = trim((string) config('update.github_repository'), '/');
+        $workflow = rawurlencode((string) config('update.github_workflow'));
+
+        $response = $this->githubRequest()->get(
+            "https://api.github.com/repos/{$repository}/actions/workflows/{$workflow}/runs",
+            [
+                'branch' => config('update.github_branch', 'main'),
+                'status' => 'success',
+                'per_page' => 1,
+            ],
+        );
+
+        if ($response->failed()) {
+            throw new RuntimeException('Impossibile controllare la versione pubblicata su GitHub.');
+        }
+
+        $version = $response->json('workflow_runs.0.head_sha');
+
+        if (! is_string($version) || preg_match('/^[0-9a-f]{40}$/i', $version) !== 1) {
+            throw new RuntimeException('GitHub non ha restituito una versione Docker valida.');
+        }
+
+        return $version;
+    }
+
+    /** @return array<int, array{command: string, output: string}> */
+    private function triggerDockerUpdate(): array
+    {
+        $url = (string) config('update.webhook_url');
+
+        if ($url === '') {
+            throw new RuntimeException('Il collegamento di aggiornamento con Portainer non è configurato.');
+        }
+
+        $request = Http::timeout(30)->acceptJson();
+
+        if (! config('update.verify_tls', true)) {
+            $request = $request->withoutVerifying();
+        }
+
+        if (filled(config('update.webhook_token'))) {
+            $request = $request->withToken((string) config('update.webhook_token'));
+        }
+
+        $response = $request->post($url);
+
+        if ($response->failed()) {
+            throw new RuntimeException("Portainer ha rifiutato l'aggiornamento (HTTP {$response->status()}).");
+        }
+
+        return [[
+            'command' => 'Aggiornamento Docker',
+            'output' => 'Richiesta accettata. Il container verrà riavviato automaticamente; la pagina potrebbe risultare non disponibile per alcuni secondi.',
+        ]];
+    }
+
+    private function githubRequest(): PendingRequest
+    {
+        $request = Http::timeout(15)
+            ->acceptJson()
+            ->withHeaders(['X-GitHub-Api-Version' => '2022-11-28']);
+
+        if (filled(config('update.github_token'))) {
+            $request = $request->withToken((string) config('update.github_token'));
+        }
+
+        return $request;
+    }
+
+    private function shortVersion(string $version): string
+    {
+        return preg_match('/^[0-9a-f]{40}$/i', $version) === 1 ? substr($version, 0, 7) : $version;
+    }
+
     private function upstream(): string
     {
         try {
             return $this->run(['git', 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
         } catch (RuntimeException) {
-            $branch = $this->run(['git', 'branch', '--show-current']);
-
-            return 'origin/'.$branch;
+            return 'origin/'.$this->run(['git', 'branch', '--show-current']);
         }
     }
 
@@ -102,12 +206,9 @@ class ApplicationUpdateService
 
     private function isDocker(): bool
     {
-        return file_exists('/.dockerenv');
+        return file_exists('/.dockerenv') || filled(getenv('APP_VERSION'));
     }
 
-    /**
-     * @param  array<int, string>  $command
-     */
     private function run(array $command): string
     {
         $process = new Process($command, base_path());
@@ -121,25 +222,18 @@ class ApplicationUpdateService
         return trim($process->getOutput());
     }
 
-    /**
-     * @param  array<int, string>  $command
-     * @return array{command: string, output: string}
-     */
+    /** @return array{command: string, output: string} */
     private function runStep(array $command): array
     {
         $process = new Process($command, base_path());
         $process->setTimeout(900);
         $process->run();
-
         $output = trim($process->getOutput().PHP_EOL.$process->getErrorOutput());
 
         if (! $process->isSuccessful()) {
             throw new RuntimeException($output);
         }
 
-        return [
-            'command' => implode(' ', $command),
-            'output' => $output,
-        ];
+        return ['command' => implode(' ', $command), 'output' => $output];
     }
 }

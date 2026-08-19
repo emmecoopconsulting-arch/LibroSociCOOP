@@ -107,7 +107,34 @@ update.bat
 ```
 
 Lo script scarica l'ultima immagine Docker pubblicata su GitHub, riavvia il container, applica le migrazioni e pulisce la cache.
-La pagina admin `Sistema > Aggiornamenti` mostra questo comando quando l'app gira dentro Docker.
+Sulle vecchie installazioni Windows lo script può continuare a essere usato manualmente.
+
+### Aggiornamento da Portainer
+
+Le immagini pubblicate contengono l'identificativo del commit GitHub con cui sono
+state costruite. La pagina `Sistema > Aggiornamenti` confronta questa versione con
+l'ultima build Docker completata con successo e abilita il pulsante solo quando è
+disponibile un'immagine più recente.
+
+Per collegare il pulsante al redeploy dello stack, creare un webhook dello stack in
+Portainer e aggiungere l'URL alle variabili dello stack:
+
+```dotenv
+UPDATE_WEBHOOK_URL=https://portainer.example/api/stacks/webhooks/ID_WEBHOOK
+```
+
+Se Portainer usa un certificato locale non riconosciuto dal container, è possibile
+disabilitare la verifica solo sulla rete interna:
+
+```dotenv
+UPDATE_VERIFY_TLS=false
+```
+
+Il webhook di stack è disponibile nelle edizioni di Portainer che includono questa
+funzionalità. L'URL è un segreto e non deve essere pubblicato nel repository o
+mostrato agli utenti. Dopo aver aggiunto la variabile è necessario ricreare una
+volta il container applicativo da Portainer. Le installazioni precedenti alla
+versionatura dell'immagine richiedono inoltre un primo aggiornamento manuale.
 
 ## Import comuni
 

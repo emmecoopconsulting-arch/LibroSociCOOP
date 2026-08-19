@@ -22,6 +22,12 @@ services:
       QUEUE_CONNECTION: database
       RUN_MIGRATIONS: "true"
       RUN_SEEDERS: "true"
+      # URL generato da Portainer Business (Stack > Webhook). Su Portainer CE
+      # può puntare a un endpoint locale che esegue il redeploy dello stack.
+      UPDATE_WEBHOOK_URL: "${UPDATE_WEBHOOK_URL:-}"
+      UPDATE_WEBHOOK_TOKEN: "${UPDATE_WEBHOOK_TOKEN:-}"
+      UPDATE_VERIFY_TLS: "${UPDATE_VERIFY_TLS:-true}"
+      UPDATE_GITHUB_TOKEN: "${UPDATE_GITHUB_TOKEN:-}"
     volumes:
       - app_storage:/var/www/html/storage
     depends_on:
