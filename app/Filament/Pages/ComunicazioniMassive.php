@@ -50,6 +50,7 @@ class ComunicazioniMassive extends Page
             'statuses' => ['attivo'],
             'types' => [],
             'mansione' => null,
+            'recipient_ids' => [],
         ]);
     }
 
@@ -68,9 +69,27 @@ class ComunicazioniMassive extends Page
                         ->maxLength(255),
                 ]),
             Section::make('Destinatari')
-                ->description('Se non selezioni una tipologia o una mansione, vengono incluse tutte quelle compatibili con gli stati scelti.')
+                ->description('Se selezioni uno o più soci specifici, la lista manuale sostituisce i filtri. Lascia la lista vuota per usare stato, tipologia e mansione.')
                 ->columns(2)
                 ->schema([
+                    Select::make('recipient_ids')
+                        ->label('Soci specifici')
+                        ->helperText('Selezione manuale opzionale: puoi cercare e scegliere più soci.')
+                        ->options(fn (): array => Socio::query()
+                            ->sociEffettivi()
+                            ->orderBy('cognome')
+                            ->orderBy('nome')
+                            ->get()
+                            ->mapWithKeys(fn (Socio $socio): array => [
+                                $socio->id => trim("{$socio->cognome} {$socio->nome}")
+                                    .' · '.(Socio::STATI[$socio->stato] ?? $socio->stato)
+                                    .(filled($socio->email) ? " · {$socio->email}" : ' · email assente'),
+                            ])
+                            ->all())
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->columnSpanFull(),
                     CheckboxList::make('statuses')->label('Stato socio')->options(Socio::STATI)->required()->columns(2),
                     CheckboxList::make('types')
                         ->label('Tipologia')
@@ -117,6 +136,7 @@ class ComunicazioniMassive extends Page
             'statuses' => array_values($data['statuses'] ?? []),
             'types' => array_values($data['types'] ?? []),
             'mansione' => filled($data['mansione'] ?? null) ? $data['mansione'] : null,
+            'recipient_ids' => array_values($data['recipient_ids'] ?? []),
         ];
         $count = $service->recipientCount($filters);
 
@@ -165,6 +185,7 @@ class ComunicazioniMassive extends Page
             'statuses' => $this->data['statuses'] ?? [],
             'types' => $this->data['types'] ?? [],
             'mansione' => $this->data['mansione'] ?? null,
+            'recipient_ids' => $this->data['recipient_ids'] ?? [],
         ]);
     }
 

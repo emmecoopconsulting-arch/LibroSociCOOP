@@ -75,6 +75,43 @@ class MassCommunicationTest extends TestCase
         }
     }
 
+    public function test_specific_recipients_replace_the_standard_filters(): void
+    {
+        Mail::fake();
+        $this->configureMail();
+
+        $selected = Socio::create($this->socioData([
+            'email' => 'selected@example.test',
+            'stato' => 'recesso',
+        ]));
+        $notSelected = Socio::create($this->socioData([
+            'nome' => 'Luigi',
+            'codice_fiscale' => 'BNCLGU80A01F205Y',
+            'email' => 'luigi@example.test',
+        ]));
+
+        $communication = MassCommunication::create([
+            'subject' => 'Comunicazione personale',
+            'body' => 'Messaggio riservato.',
+            'filters' => [
+                'statuses' => ['attivo'],
+                'types' => [],
+                'mansione' => null,
+                'recipient_ids' => [$selected->id],
+            ],
+        ]);
+
+        $result = app(MassCommunicationService::class)->send($communication);
+
+        $this->assertSame(['sent' => 1, 'failed' => 0, 'skipped' => 0], $result);
+        Mail::assertSent(MassCommunicationMail::class, 1);
+        Mail::assertSent(MassCommunicationMail::class, fn (MassCommunicationMail $mail): bool => $mail->socio->is($selected));
+        $this->assertDatabaseMissing('mass_communication_deliveries', [
+            'mass_communication_id' => $communication->id,
+            'socio_id' => $notSelected->id,
+        ]);
+    }
+
     private function configureMail(): void
     {
         AppSetting::setValue(AppSetting::MAIL_PROVIDER, 'traditional');

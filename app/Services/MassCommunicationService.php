@@ -19,13 +19,18 @@ class MassCommunicationService
     {
         $statuses = array_values(array_filter((array) ($filters['statuses'] ?? [])));
         $types = array_values(array_filter((array) ($filters['types'] ?? [])));
+        $recipientIds = array_values(array_filter(
+            (array) ($filters['recipient_ids'] ?? []),
+            fn (mixed $id): bool => filter_var($id, FILTER_VALIDATE_INT) !== false,
+        ));
 
         return Socio::query()
             ->sociEffettivi()
-            ->when($statuses === [], fn (Builder $query) => $query->whereRaw('1 = 0'))
-            ->when($statuses !== [], fn (Builder $query) => $query->whereIn('stato', $statuses))
-            ->when($types !== [], fn (Builder $query) => $query->whereIn('tipologia', $types))
-            ->when(filled($filters['mansione'] ?? null), fn (Builder $query) => $query->where('mansione', $filters['mansione']))
+            ->when($recipientIds !== [], fn (Builder $query) => $query->whereKey($recipientIds))
+            ->when($recipientIds === [] && $statuses === [], fn (Builder $query) => $query->whereRaw('1 = 0'))
+            ->when($recipientIds === [] && $statuses !== [], fn (Builder $query) => $query->whereIn('stato', $statuses))
+            ->when($recipientIds === [] && $types !== [], fn (Builder $query) => $query->whereIn('tipologia', $types))
+            ->when($recipientIds === [] && filled($filters['mansione'] ?? null), fn (Builder $query) => $query->where('mansione', $filters['mansione']))
             ->orderBy('cognome')
             ->orderBy('nome');
     }
