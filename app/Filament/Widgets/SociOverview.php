@@ -27,9 +27,8 @@ class SociOverview extends StatsOverviewWidget
             ->whereDate('scadenza_permesso_soggiorno', '<', $today)
             ->count();
         $visiteScadute = SocioMedicalVisit::query()
-            ->whereIn('id', SocioMedicalVisit::query()
-                ->selectRaw('MAX(id)')
-                ->groupBy('socio_id'))
+            ->latestForSocios()
+            ->whereHas('socio', fn ($query) => $query->attivi()->ordinari())
             ->whereDate('scadenza', '<', $today)
             ->count();
 
@@ -59,9 +58,8 @@ class SociOverview extends StatsOverviewWidget
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color('danger'),
             Stat::make('Visite mediche in scadenza', SocioMedicalVisit::query()
-                ->whereIn('id', SocioMedicalVisit::query()
-                    ->selectRaw('MAX(id)')
-                    ->groupBy('socio_id'))
+                ->latestForSocios()
+                ->whereHas('socio', fn ($query) => $query->attivi()->ordinari())
                 ->whereDate('scadenza', '<=', $today->addDays($visitaAlertDays))
                 ->count())
                 ->description("{$visiteScadute} scadute / entro {$visitaAlertDays} giorni")

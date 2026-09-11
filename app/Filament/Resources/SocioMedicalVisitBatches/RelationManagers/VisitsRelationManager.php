@@ -6,7 +6,6 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
@@ -29,40 +28,40 @@ class VisitsRelationManager extends RelationManager
             ->components([
                 Section::make('Visita medica socio')
                     ->columns(2)
-                    ->schema([
-                        Select::make('socio_id')
-                            ->label('Socio')
-                            ->relationship('socio', 'codice_socio')
-                            ->getOptionLabelFromRecordUsing(fn ($record): string => "{$record->codice_socio} - {$record->cognome} {$record->nome}")
-                            ->disabled()
-                            ->dehydrated(),
-                        DatePicker::make('data_visita')
-                            ->label('Data visita')
-                            ->required(),
-                        DatePicker::make('scadenza')
-                            ->label('Scadenza')
-                            ->required(),
-                        FileUpload::make('pdf_path')
-                            ->label('PDF visita medica')
-                            ->disk('local')
-                            ->directory('visite-mediche')
-                            ->acceptedFileTypes(['application/pdf'])
-                            ->maxSize(15360)
-                            ->downloadable()
-                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                'path' => Crypt::encryptString($file),
-                                'download' => true,
-                            ]))
-                            ->openable()
-                            ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
-                                'path' => Crypt::encryptString($file),
-                            ]))
-                            ->columnSpanFull(),
-                        Textarea::make('note')
-                            ->label('Note')
-                            ->columnSpanFull(),
-                    ]),
+                    ->schema(self::visitFields()),
             ]);
+    }
+
+    public static function visitFields(): array
+    {
+        return [
+            DatePicker::make('data_visita')
+                ->label('Data visita')
+                ->required(),
+            DatePicker::make('scadenza')
+                ->label('Scadenza')
+                ->afterOrEqual('data_visita')
+                ->required(),
+            FileUpload::make('pdf_path')
+                ->label('PDF visita medica')
+                ->disk('local')
+                ->directory('visite-mediche')
+                ->acceptedFileTypes(['application/pdf'])
+                ->maxSize(15360)
+                ->downloadable()
+                ->getDownloadableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                    'path' => Crypt::encryptString($file),
+                    'download' => true,
+                ]))
+                ->openable()
+                ->getOpenableFileUrlUsing(fn (string $file): string => route('visite-mediche.file', [
+                    'path' => Crypt::encryptString($file),
+                ]))
+                ->columnSpanFull(),
+            Textarea::make('note')
+                ->label('Note')
+                ->columnSpanFull(),
+        ];
     }
 
     public function table(Table $table): Table
@@ -75,7 +74,7 @@ class VisitsRelationManager extends RelationManager
                     ->searchable(),
                 TextColumn::make('socio.nome_completo')
                     ->label('Socio')
-                    ->searchable(),
+                    ->searchable(['nome', 'cognome']),
                 TextColumn::make('data_visita')
                     ->label('Data visita')
                     ->date('d/m/Y')

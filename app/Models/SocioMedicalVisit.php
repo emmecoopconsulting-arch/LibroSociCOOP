@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Services\S3ArchiveService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'batch_id',
@@ -27,6 +29,8 @@ class SocioMedicalVisit extends Model
 
     protected static function booted(): void
     {
+        static::saved(fn (SocioMedicalVisit $visit) => $visit->syncDocument());
+
         static::created(function (SocioMedicalVisit $visit): void {
             $visit->archivePdfOnS3();
         });
@@ -46,6 +50,44 @@ class SocioMedicalVisit extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(SocioMedicalVisitBatch::class, 'batch_id');
+    }
+
+    public function document(): HasOne
+    {
+        return $this->hasOne(SocioDocument::class);
+    }
+
+    public function syncDocument(): void
+    {
+        if (blank($this->pdf_path)) {
+            $this->document()->delete();
+
+            return;
+        }
+
+        $this->document()->updateOrCreate([], [
+            'socio_id' => $this->socio_id,
+            'tipo' => 'visita_medica',
+            'file_path' => $this->pdf_path,
+            'data_rilascio' => $this->data_visita,
+            'data_scadenza' => $this->scadenza,
+            'note' => $this->note,
+        ]);
+    }
+
+    public function scopeLatestForSocios(Builder $query): Builder
+    {
+        return $query->whereNotExists(function ($newer): void {
+            $newer->selectRaw('1')->from('socio_medical_visits as newer')
+                ->whereColumn('newer.socio_id', 'socio_medical_visits.socio_id')
+                ->where(function ($dates): void {
+                    $dates->whereColumn('newer.data_visita', '>', 'socio_medical_visits.data_visita')
+                        ->orWhere(function ($tie): void {
+                            $tie->whereColumn('newer.data_visita', 'socio_medical_visits.data_visita')
+                                ->whereColumn('newer.id', '>', 'socio_medical_visits.id');
+                        });
+                });
+        });
     }
 
     private function archivePdfOnS3(): void

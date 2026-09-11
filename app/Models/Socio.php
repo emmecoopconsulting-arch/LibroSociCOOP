@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -148,6 +149,11 @@ class Socio extends Model
     public function medicalVisits(): HasMany
     {
         return $this->hasMany(SocioMedicalVisit::class);
+    }
+
+    public function latestMedicalVisit(): HasOne
+    {
+        return $this->hasOne(SocioMedicalVisit::class)->ofMany(['data_visita' => 'max', 'id' => 'max']);
     }
 
     public function documents(): HasMany

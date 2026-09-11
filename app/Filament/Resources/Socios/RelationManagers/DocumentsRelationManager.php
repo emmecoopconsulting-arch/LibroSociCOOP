@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Socios\RelationManagers;
 
+use App\Filament\Resources\SocioMedicalVisitBatches\RelationManagers\VisitsRelationManager;
 use App\Models\SocioDocument;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -74,6 +75,7 @@ class DocumentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->checkIfRecordIsSelectableUsing(fn (SocioDocument $record): bool => blank($record->socio_medical_visit_id))
             ->defaultSort('data_scadenza')
             ->columns([
                 TextColumn::make('tipo')
@@ -116,8 +118,15 @@ class DocumentsRelationManager extends RelationManager
                     ]))
                     ->openUrlInNewTab()
                     ->visible(fn ($record): bool => filled($record->file_path) && Storage::disk('local')->exists($record->file_path)),
-                EditAction::make(),
-                DeleteAction::make(),
+                Action::make('manageVisit')
+                    ->label('Gestisci visita')
+                    ->schema(VisitsRelationManager::visitFields())
+                    ->fillForm(fn (SocioDocument $record): array => $record->medicalVisit->attributesToArray())
+                    ->action(fn (SocioDocument $record, array $data) => $record->medicalVisit->update($data))
+                    ->successNotificationTitle('Visita e allegato aggiornati')
+                    ->visible(fn (SocioDocument $record): bool => filled($record->socio_medical_visit_id)),
+                EditAction::make()->visible(fn (SocioDocument $record): bool => blank($record->socio_medical_visit_id)),
+                DeleteAction::make()->visible(fn (SocioDocument $record): bool => blank($record->socio_medical_visit_id)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

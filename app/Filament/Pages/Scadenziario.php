@@ -139,9 +139,8 @@ class Scadenziario extends Page
 
         $visite = SocioMedicalVisit::query()
             ->with('socio')
-            ->whereIn('id', SocioMedicalVisit::query()
-                ->selectRaw('MAX(id)')
-                ->groupBy('socio_id'))
+            ->latestForSocios()
+            ->whereHas('socio', fn ($query) => $query->attivi()->ordinari())
             ->whereBetween('scadenza', [$start, $end])
             ->orderBy('scadenza')
             ->get()

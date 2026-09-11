@@ -184,3 +184,30 @@ Intestazioni riconosciute:
 php artisan test
 ./vendor/bin/pint
 ```
+
+## Gestione visite mediche
+
+La pagina **Soci > Visite mediche** riepiloga i soci ordinari attivi: nessuna
+visita, visita scaduta, in scadenza e in corso di validità. La soglia di avviso è
+quella configurata nelle impostazioni; una visita che scade oggi rientra tra
+quelle in scadenza. Il filtro PDF mostra le ultime visite registrate senza
+certificato allegato. I filtri permettono di consultare anche altre tipologie e
+stati del socio. La situazione usa la data della visita più recente, con l'ID
+come criterio in caso di visite nello stesso giorno.
+
+Si possono registrare visite per più soci, indicare la scadenza del certificato
+(se omessa, un anno dalla visita), modificare date e note e caricare/sostituire il
+PDF. Lo storico completo di ogni socio è disponibile nella sua scheda.
+
+Ogni PDF è collegato automaticamente ai **Documenti** del socio con tipo
+**Visita medica**; date, note e file vengono aggiornati dalla visita. Questi
+allegati si gestiscono dalla visita per mantenerli coerenti. La rimozione del
+PDF o della visita elimina il collegamento, conservando il file originale.
+
+La migrazione `2026_09_11_000001_link_medical_visit_documents` crea anche gli
+allegati per tutte le visite storiche con un percorso PDF, inclusi i soci non
+più attivi. Riutilizza i file privati esistenti senza copiarli e può riprendere
+il recupero senza duplicare i collegamenti. Le visite prive di PDF restano
+segnalate come tali: non viene generato un certificato sostitutivo.
+La migrazione si applica con `php artisan migrate` (automaticamente negli
+aggiornamenti Docker).

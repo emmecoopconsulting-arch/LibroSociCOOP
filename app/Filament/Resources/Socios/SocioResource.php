@@ -6,6 +6,7 @@ use App\Filament\Resources\Socios\Pages\CreateSocio;
 use App\Filament\Resources\Socios\Pages\EditSocio;
 use App\Filament\Resources\Socios\Pages\ListSocios;
 use App\Filament\Resources\Socios\RelationManagers\DocumentsRelationManager;
+use App\Filament\Resources\Socios\RelationManagers\MedicalVisitsRelationManager;
 use App\Filament\Resources\Socios\Schemas\SocioForm;
 use App\Filament\Resources\Socios\Tables\SociosTable;
 use App\Models\Socio;
@@ -47,6 +48,7 @@ class SocioResource extends Resource
     {
         return [
             DocumentsRelationManager::class,
+            MedicalVisitsRelationManager::class,
         ];
     }
 

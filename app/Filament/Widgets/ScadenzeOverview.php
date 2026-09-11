@@ -50,9 +50,8 @@ class ScadenzeOverview extends Widget
 
         return SocioMedicalVisit::query()
             ->with('socio')
-            ->whereIn('id', SocioMedicalVisit::query()
-                ->selectRaw('MAX(id)')
-                ->groupBy('socio_id'))
+            ->latestForSocios()
+            ->whereHas('socio', fn ($query) => $query->attivi()->ordinari())
             ->whereDate('scadenza', '<=', $today->addDays($alertDays))
             ->orderBy('scadenza')
             ->limit(8)
@@ -71,9 +70,8 @@ class ScadenzeOverview extends Widget
     private function visiteScaduteCount(): int
     {
         return SocioMedicalVisit::query()
-            ->whereIn('id', SocioMedicalVisit::query()
-                ->selectRaw('MAX(id)')
-                ->groupBy('socio_id'))
+            ->latestForSocios()
+            ->whereHas('socio', fn ($query) => $query->attivi()->ordinari())
             ->whereDate('scadenza', '<', CarbonImmutable::today())
             ->count();
     }
