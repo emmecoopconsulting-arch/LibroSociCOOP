@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Actions\ExportTableExcelAction;
 use App\Filament\Resources\SocioMedicalVisitBatches\RelationManagers\VisitsRelationManager;
 use App\Filament\Resources\SocioMedicalVisitBatches\SocioMedicalVisitBatchResource;
 use App\Filament\Resources\Socios\SocioResource;
@@ -316,6 +317,9 @@ class VisiteMediche extends Page implements HasTable
             ->heading('Situazione visite per socio')
             ->description('La situazione si riferisce alla visita più recente per data. Usa i filtri per includere altre tipologie o soci non attivi.')
             ->defaultSort('cognome')
+            ->headerActions([
+                ExportTableExcelAction::make('Situazione visite mediche', 'situazione-visite-mediche'),
+            ])
             ->columns([
                 TextColumn::make('codice_socio')->label('Codice')->searchable()->sortable(),
                 TextColumn::make('nome_completo')->label('Socio')->searchable(['nome', 'cognome']),

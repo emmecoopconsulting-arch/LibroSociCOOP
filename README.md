@@ -211,3 +211,12 @@ il recupero senza duplicare i collegamenti. Le visite prive di PDF restano
 segnalate come tali: non viene generato un certificato sostitutivo.
 La migrazione si applica con `php artisan migrate` (automaticamente negli
 aggiornamenti Docker).
+
+Nelle tabelle del riepilogo, dello storico generale, del dettaglio di una
+registrazione e dello storico del socio è disponibile **Esporta Excel**.
+Il file `.xlsx` include tutte le righe corrispondenti ai filtri e alla ricerca
+applicati, anche oltre la pagina corrente, nell'ordine scelto e con le sole
+colonne visibili. Le date sono celle Excel ordinabili, la presenza del PDF è
+indicata con Sì/No e le note vengono esportate per intero. Il file contiene
+l'elenco, senza incorporare i PDF. Intestazioni bloccate e filtri Excel sono
+inclusi anche quando l'elenco è vuoto.

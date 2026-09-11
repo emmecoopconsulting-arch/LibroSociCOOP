@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SocioMedicalVisitBatches\RelationManagers;
 
+use App\Filament\Actions\ExportTableExcelAction;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -68,6 +69,9 @@ class VisitsRelationManager extends RelationManager
     {
         return $table
             ->defaultSort('id')
+            ->headerActions([
+                ExportTableExcelAction::make('Dettaglio visite mediche', 'dettaglio-visite-mediche'),
+            ])
             ->columns([
                 TextColumn::make('socio.codice_socio')
                     ->label('Codice socio')

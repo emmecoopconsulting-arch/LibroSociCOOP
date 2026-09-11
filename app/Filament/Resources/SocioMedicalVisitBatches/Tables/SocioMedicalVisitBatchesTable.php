@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SocioMedicalVisitBatches\Tables;
 
+use App\Filament\Actions\ExportTableExcelAction;
 use App\Models\SocioMedicalVisitBatch;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -13,6 +14,9 @@ class SocioMedicalVisitBatchesTable
     {
         return $table
             ->defaultSort('data_visita', 'desc')
+            ->headerActions([
+                ExportTableExcelAction::make('Storico visite mediche', 'storico-visite-mediche'),
+            ])
             ->columns([
                 TextColumn::make('data_visita')
                     ->label('Data visite')
