@@ -259,7 +259,6 @@ class Impostazioni extends Page
                     ->description(fn (): string => $this->ocrDescription())
                     ->visible(fn ($get): bool => $get('ocr_provider') === 'local')
                     ->schema([]),
-            ]),
             ])
             ->statePath('data');
     }
