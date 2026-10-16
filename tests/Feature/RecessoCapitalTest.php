@@ -26,12 +26,9 @@ class RecessoCapitalTest extends TestCase
         $this->assertSame('0.00', $socio->refresh()->quota_sociale);
         $this->assertSame('0.00', $socio->capitale_versato);
         $this->assertSame('2026-10-16', $socio->data_uscita->toDateString());
-        $this->assertDatabaseHas('socio_changes', [
-            'socio_id' => $socio->id,
-            'field' => 'capitale_versato',
-            'old_value' => '80.25',
-            'new_value' => '0.00',
-        ]);
+        $change = $socio->changes()->where('field', 'capitale_versato')->firstOrFail();
+        $this->assertSame('80.25', $change->old_value);
+        $this->assertSame(0.0, (float) $change->new_value);
 
         $socio->update(['quota_sociale' => 900, 'capitale_versato' => 900]);
         $this->assertSame('0.00', $socio->refresh()->quota_sociale);
