@@ -1,0 +1,42 @@
+name: Payroll OCR tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/Models/AppSetting.php'
+      - 'app/Services/*PayrollOcrService.php'
+      - 'app/Filament/Pages/Impostazioni.php'
+      - 'tests/Feature/BedrockPayrollOcrTest.php'
+      - '.github/workflows/payroll-ocr-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/Models/AppSetting.php'
+      - 'app/Services/*PayrollOcrService.php'
+      - 'app/Filament/Pages/Impostazioni.php'
+      - 'tests/Feature/BedrockPayrollOcrTest.php'
+      - '.github/workflows/payroll-ocr-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  payroll-ocr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, gd, intl, mbstring, pdo_sqlite, zip
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Configure test application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Test Bedrock OCR request and secret storage
+        run: php artisan test --filter=BedrockPayrollOcrTest
