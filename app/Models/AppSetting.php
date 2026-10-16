@@ -199,7 +199,7 @@ class AppSetting extends Model
 
         try {
             return Crypt::decryptString($encrypted);
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             return null;
         }
     }
