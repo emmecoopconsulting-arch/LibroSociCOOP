@@ -254,11 +254,12 @@ class Impostazioni extends Page
                             ->helperText('La chiave viene cifrata nel database. Lascia vuoto per mantenere quella già salvata.')
                             ->required(fn ($get): bool => $get('ocr_provider') === 'bedrock' && blank(AppSetting::bedrockOcrApiKey()))
                             ->maxLength(4096),
-                        \Filament\\Forms\\Components\\Placeholder::make('ocr_local_status')
-                            ->label('Stato OCR locale')
-                            ->content(fn (): string => $this->ocrDescription())
-                            ->visible(fn ($get): bool => $get('ocr_provider') === 'local'),
                     ]),
+                Section::make('OCR locale')
+                    ->description(fn (): string => $this->ocrDescription())
+                    ->visible(fn ($get): bool => $get('ocr_provider') === 'local')
+                    ->schema([]),
+            ]),
             ])
             ->statePath('data');
     }
@@ -401,7 +402,7 @@ class Impostazioni extends Page
         }
     }
 
-    public function testBedrock(\\App\\Services\\BedrockPayrollOcrService $bedrock): void
+    public function testBedrock(\App\Services\BedrockPayrollOcrService $bedrock): void
     {
         $this->saveSettings();
 
