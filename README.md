@@ -185,6 +185,38 @@ php artisan test
 ./vendor/bin/pint
 ```
 
+## Bonifica quote dei soci in recesso
+
+Per lo stato `recesso`, quota sociale e capitale versato sono sempre azzerati
+al salvataggio. La regola si applica a modifiche manuali e massive, importazioni,
+variazioni di recesso e cessazioni del rapporto di lavoro che impostano lo stato
+di recesso. Il capitale sociale esclude inoltre questi soci dal riepilogo.
+Gli altri stati mantengono il comportamento precedente.
+
+La migrazione `2026_10_16_000001_zero_recesso_share_capital` bonifica i soci già
+in recesso con importi residui, inclusi quelli nel cestino. Si applica con
+`php artisan migrate --force`, automaticamente durante l'aggiornamento Docker.
+Ogni socio viene aggiornato in transazione, con controllo dello stato sotto lock.
+Gli importi precedenti sono conservati in `socio_changes` e nel registro attività
+con evento `bonifica_recesso`. La bonifica può riprendere senza duplicare rettifiche
+e lascia intatti anagrafica, date di uscita, verbali e documenti.
+
+Le nuove variazioni conservano quota e capitale negli snapshot prima/dopo.
+I riepiloghi dei verbali di uscita usano il capitale precedente al recesso;
+per le variazioni storiche prive di snapshot finanziario viene usato, quando
+disponibile, l'importo precedente al primo azzeramento registrato dopo la variazione.
+I PDF già archiviati non vengono rigenerati dalla bonifica.
+
+L'azzeramento corregge il capitale attuale: non registra un pagamento di rimborso.
+Il rollback della migrazione non ripristina gli importi, per evitare di
+riattribuire capitale ai soci in recesso; gli originali restano nello storico.
+
+Test mirati:
+
+```bash
+php artisan test --filter='RecessoCapitalTest|LibroSociTest|SocioExcelImportServiceTest'
+```
+
 ## Gestione visite mediche
 
 La pagina **Soci > Visite mediche** riepiloga i soci ordinari attivi: nessuna

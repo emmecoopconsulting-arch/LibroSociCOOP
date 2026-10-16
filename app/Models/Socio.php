@@ -191,6 +191,11 @@ class Socio extends Model
         return $query->where('tipologia', '!=', self::TIPOLOGIA_MEMBRO_CDA);
     }
 
+    public function scopeConCapitaleSociale(Builder $query): Builder
+    {
+        return $query->sociEffettivi()->where('stato', '!=', 'recesso');
+    }
+
     public function scopeOrdinari(Builder $query): Builder
     {
         return $query->where('tipologia', 'ordinario');
@@ -203,6 +208,11 @@ class Socio extends Model
 
     private function normalizeDerivedFields(): void
     {
+        if ($this->stato === 'recesso') {
+            $this->quota_sociale = 0;
+            $this->capitale_versato = 0;
+        }
+
         if ($this->tipologia === self::TIPOLOGIA_MEMBRO_CDA) {
             $this->is_cda_member = true;
             $this->quota_sociale = 0;

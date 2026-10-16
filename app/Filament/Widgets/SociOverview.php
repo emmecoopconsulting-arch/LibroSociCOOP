@@ -17,7 +17,7 @@ class SociOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $capitaleSociale = (float) Socio::query()->sociEffettivi()->sum('capitale_versato');
+        $capitaleSociale = (float) Socio::query()->conCapitaleSociale()->sum('capitale_versato');
         $today = CarbonImmutable::today();
         $permessoAlertDays = AppSetting::int(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS);
         $visitaAlertDays = AppSetting::int(AppSetting::VISITA_MEDICA_ALERT_DAYS);
@@ -46,7 +46,7 @@ class SociOverview extends StatsOverviewWidget
                 ->icon('heroicon-o-identification')
                 ->color('info'),
             Stat::make('Capitale sociale', $this->formatEuro($capitaleSociale))
-                ->description('Somma dei versamenti')
+                ->description('Capitale attuale, esclusi i soci in recesso')
                 ->icon('heroicon-o-banknotes')
                 ->color('warning'),
             Stat::make('Permessi in scadenza', Socio::query()

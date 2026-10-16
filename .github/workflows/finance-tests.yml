@@ -1,0 +1,40 @@
+name: Finance regression tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/Models/Socio.php'
+      - 'app/Services/Socio*'
+      - 'app/Services/Verbale*'
+      - 'app/Filament/Resources/Socios/**'
+      - 'app/Filament/Widgets/SociOverview.php'
+      - 'database/migrations/**'
+      - 'tests/Feature/*Socio*'
+      - 'tests/Feature/RecessoCapitalTest.php'
+      - 'composer.*'
+      - 'phpunit.xml'
+      - '.github/workflows/finance-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  finance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, gd, intl, mbstring, pdo_sqlite, zip
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Configure test application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Test recesso, cleanup and existing member workflows
+        run: php artisan test --filter='RecessoCapitalTest|LibroSociTest|SocioExcelImportServiceTest'
