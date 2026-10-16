@@ -117,14 +117,16 @@ class SocioForm
                             ->numeric()
                             ->default(0)
                             ->prefix('EUR')
-                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
+                            ->helperText(fn ($get): ?string => $get('stato') === 'recesso' ? 'Azzerata al salvataggio per i soci in recesso.' : null)
+                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA || $get('stato') === 'recesso')
                             ->dehydrated(),
                         TextInput::make('capitale_versato')
                             ->label('Capitale versato')
                             ->numeric()
                             ->default(0)
                             ->prefix('EUR')
-                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA)
+                            ->helperText(fn ($get): ?string => $get('stato') === 'recesso' ? 'Escluso dal capitale sociale e azzerato al salvataggio.' : null)
+                            ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA || $get('stato') === 'recesso')
                             ->dehydrated(),
                     ]),
                 Section::make('Contratto di lavoro')

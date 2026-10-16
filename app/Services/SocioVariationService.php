@@ -15,7 +15,7 @@ class SocioVariationService
     public function createAndApply(array $data): SocioVariation
     {
         return DB::transaction(function () use ($data): SocioVariation {
-            $socio = Socio::query()->findOrFail($data['socio_id']);
+            $socio = Socio::query()->lockForUpdate()->findOrFail($data['socio_id']);
             $this->validateBusinessRules($socio, $data);
 
             $previousSnapshot = $this->snapshot($socio);
@@ -205,6 +205,8 @@ class SocioVariationService
                 'tipologia',
                 'stato',
                 'data_uscita',
+                'quota_sociale',
+                'capitale_versato',
             ]),
             'contratto' => $contract?->attributesToArray(),
         ];

@@ -155,9 +155,9 @@ class VerbalePdfService
     public function riepilogoSociale(Verbale $verbale, Socio $socio): array
     {
         $isAmmissione = $verbale->tipo === 'ammissione';
-        $isUscita = in_array($verbale->tipo, ['recesso', 'esclusione'], true);
+        $isUscita = in_array($verbale->tipo, ['recesso', 'esclusione', 'cessazione_rapporto'], true);
         $isOrdinario = $socio->tipologia === 'ordinario';
-        $capitaleSocio = (float) $socio->capitale_versato;
+        $capitaleSocio = $this->capitaleSocioPerRiepilogo($verbale, $socio, $isUscita);
 
         $sociOrdinariAltri = Socio::query()
             ->whereKeyNot($socio->getKey())
@@ -166,7 +166,7 @@ class VerbalePdfService
 
         $capitaleAltri = (float) Socio::query()
             ->whereKeyNot($socio->getKey())
-            ->sociEffettivi()
+            ->conCapitaleSociale()
             ->sum('capitale_versato');
 
         $sociOrdinariEntrati = $isAmmissione && $isOrdinario ? 1 : 0;
@@ -187,6 +187,33 @@ class VerbalePdfService
             'capitale_sociale_uscito' => $capitaleUscito,
             'capitale_sociale_complessivo' => $capitalePrima + $capitaleEntrato - $capitaleUscito,
         ];
+    }
+
+    private function capitaleSocioPerRiepilogo(Verbale $verbale, Socio $socio, bool $isUscita): float
+    {
+        if (! $isUscita) {
+            return (float) $socio->capitale_versato;
+        }
+
+        $variation = $verbale->variation;
+        $previousCapital = data_get($variation?->snapshot_precedente, 'socio.capitale_versato');
+
+        if ($previousCapital !== null) {
+            return (float) $previousCapital;
+        }
+
+        // Legacy variations have no financial snapshot. Recover the first
+        // recorded reset after the variation, including the cleanup migration.
+        if ($variation && $socio->stato === 'recesso') {
+            $previousCapital = $socio->changes()
+                ->where('field', 'capitale_versato')
+                ->whereIn('new_value', ['0', '0.00'])
+                ->where('created_at', '>=', $variation->created_at)
+                ->orderBy('id')
+                ->value('old_value');
+        }
+
+        return (float) ($previousCapital ?? $socio->capitale_versato);
     }
 
     private function titolo(Socio $socio): string
