@@ -41,6 +41,10 @@ class Impostazioni extends Page
             'permesso_soggiorno_alert_days' => AppSetting::int(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS),
             'visita_medica_alert_days' => AppSetting::int(AppSetting::VISITA_MEDICA_ALERT_DAYS),
             'mansioni' => AppSetting::mansioni(),
+            'ocr_provider' => AppSetting::string(AppSetting::OCR_PROVIDER) ?: 'local',
+            'bedrock_region' => AppSetting::string(AppSetting::BEDROCK_REGION) ?: 'us-east-1',
+            'bedrock_model_id' => AppSetting::string(AppSetting::BEDROCK_MODEL_ID),
+            'bedrock_api_key' => null,
             's3_archive_enabled' => AppSetting::bool(AppSetting::S3_ARCHIVE_ENABLED),
             's3_access_key_id' => AppSetting::string(AppSetting::S3_ACCESS_KEY_ID),
             's3_secret_access_key' => null,
@@ -219,8 +223,41 @@ class Impostazioni extends Page
                             ->label('Nome mittente')
                             ->maxLength(255),
                     ]),
+                Section::make('OCR buste paga')
+                    ->description('Con Bedrock le immagini delle buste paga vengono inviate alla regione AWS selezionata. Per dati del personale, configura una regione europea e un profilo di inferenza europeo.')
+                    ->schema([
+                        Select::make('ocr_provider')
+                            ->label('Motore OCR')
+                            ->options([
+                                'local' => 'Locale (Tesseract)',
+                                'bedrock' => 'Amazon Bedrock',
+                            ])
+                            ->required()
+                            ->live(),
+                        TextInput::make('bedrock_region')
+                            ->label('Regione AWS')
+                            ->placeholder('us-east-1')
+                            ->required(fn ($get): bool => $get('ocr_provider') === 'bedrock')
+                            ->visible(fn ($get): bool => $get('ocr_provider') === 'bedrock')
+                            ->maxLength(32),
+                        TextInput::make('bedrock_model_id')
+                            ->label('ID o ARN profilo di inferenza')
+                            ->placeholder('us.amazon.nova-lite-v1:0 oppure ARN del profilo')
+                            ->required(fn ($get): bool => $get('ocr_provider') === 'bedrock')
+                            ->visible(fn ($get): bool => $get('ocr_provider') === 'bedrock')
+                            ->maxLength(2048),
+                        TextInput::make('bedrock_api_key')
+                            ->label('Chiave API Bedrock')
+                            ->password()
+                            ->revealable()
+                            ->visible(fn ($get): bool => $get('ocr_provider') === 'bedrock')
+                            ->helperText('La chiave viene cifrata nel database. Lascia vuoto per mantenere quella già salvata.')
+                            ->required(fn ($get): bool => $get('ocr_provider') === 'bedrock' && blank(AppSetting::bedrockOcrApiKey()))
+                            ->maxLength(4096),
+                    ]),
                 Section::make('OCR locale')
                     ->description(fn (): string => $this->ocrDescription())
+                    ->visible(fn ($get): bool => $get('ocr_provider') === 'local')
                     ->schema([]),
             ])
             ->statePath('data');
@@ -255,6 +292,9 @@ class Impostazioni extends Page
                             Action::make('testSmtp')
                                 ->label('Invia email SMTP di prova')
                                 ->action('testSmtp'),
+                            Action::make('testBedrock')
+                                ->label('Test connessione Bedrock')
+                                ->action('testBedrock'),
                             Action::make('save')
                                 ->label('Salva impostazioni')
                                 ->submit('save'),
@@ -361,6 +401,27 @@ class Impostazioni extends Page
         }
     }
 
+    public function testBedrock(\App\Services\BedrockPayrollOcrService $bedrock): void
+    {
+        $this->saveSettings();
+
+        try {
+            $bedrock->testConnection();
+            Notification::make()
+                ->title('Connessione Bedrock riuscita')
+                ->body('Il profilo di inferenza ha risposto correttamente.')
+                ->success()
+                ->send();
+        } catch (\Throwable $exception) {
+            report($exception);
+            Notification::make()
+                ->title('Connessione Bedrock non riuscita')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
     public function ocrDescription(): string
     {
         $diagnostics = app(LocalPayrollOcrService::class)->diagnostics();
@@ -389,6 +450,10 @@ class Impostazioni extends Page
         AppSetting::setValue(AppSetting::PERMESSO_SOGGIORNO_ALERT_DAYS, (int) $data['permesso_soggiorno_alert_days']);
         AppSetting::setValue(AppSetting::VISITA_MEDICA_ALERT_DAYS, (int) $data['visita_medica_alert_days']);
         AppSetting::setValue(AppSetting::MANSIONI, $this->sanitizeMansioni($data['mansioni'] ?? []));
+        AppSetting::setValue(AppSetting::OCR_PROVIDER, ($data['ocr_provider'] ?? 'local') === 'bedrock' ? 'bedrock' : 'local');
+        AppSetting::setValue(AppSetting::BEDROCK_REGION, $this->nullableString($data['bedrock_region'] ?? null) ?: 'us-east-1');
+        AppSetting::setValue(AppSetting::BEDROCK_MODEL_ID, $this->nullableString($data['bedrock_model_id'] ?? null));
+        AppSetting::setBedrockOcrApiKey($this->nullableString($data['bedrock_api_key'] ?? null));
         AppSetting::setValue(AppSetting::S3_ARCHIVE_ENABLED, (bool) ($data['s3_archive_enabled'] ?? false));
         AppSetting::setValue(AppSetting::S3_ACCESS_KEY_ID, $this->nullableString($data['s3_access_key_id'] ?? null));
         AppSetting::setS3SecretAccessKey($this->nullableString($data['s3_secret_access_key'] ?? null));

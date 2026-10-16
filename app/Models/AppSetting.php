@@ -18,6 +18,14 @@ class AppSetting extends Model
 
     public const MANSIONI = 'mansioni';
 
+    public const OCR_PROVIDER = 'ocr_provider';
+
+    public const BEDROCK_REGION = 'bedrock_region';
+
+    public const BEDROCK_MODEL_ID = 'bedrock_model_id';
+
+    public const BEDROCK_API_KEY = 'bedrock_api_key';
+
     public const S3_ARCHIVE_ENABLED = 's3_archive_enabled';
 
     public const S3_ACCESS_KEY_ID = 's3_access_key_id';
@@ -74,6 +82,10 @@ class AppSetting extends Model
             'Autista',
             'Impiegato amministrativo',
         ],
+        self::OCR_PROVIDER => 'local',
+        self::BEDROCK_REGION => 'us-east-1',
+        self::BEDROCK_MODEL_ID => null,
+        self::BEDROCK_API_KEY => null,
         self::S3_ARCHIVE_ENABLED => false,
         self::S3_ACCESS_KEY_ID => null,
         self::S3_SECRET_ACCESS_KEY => null,
@@ -175,6 +187,28 @@ class AppSetting extends Model
         }
 
         static::setValue(static::S3_SECRET_ACCESS_KEY, Crypt::encryptString($value));
+    }
+
+    public static function bedrockOcrApiKey(): ?string
+    {
+        $encrypted = static::string(static::BEDROCK_API_KEY);
+
+        if (blank($encrypted)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($encrypted);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public static function setBedrockOcrApiKey(?string $value): void
+    {
+        if (filled($value)) {
+            static::setValue(static::BEDROCK_API_KEY, Crypt::encryptString($value));
+        }
     }
 
     public static function smtpPassword(): ?string

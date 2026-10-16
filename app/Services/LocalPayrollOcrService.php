@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AppSetting;
 use App\Models\PayrollDistribution;
 use App\Models\Socio;
 use Illuminate\Support\Collection;
@@ -43,10 +44,15 @@ class LocalPayrollOcrService
     public function analyze(PayrollDistribution $distribution): void
     {
         $source = Storage::disk('local')->path($distribution->source_path);
+        $provider = AppSetting::string(AppSetting::OCR_PROVIDER) ?: 'local';
         $diagnostics = $this->diagnostics();
 
-        if (! $diagnostics['ready']) {
+        if ($provider === 'local' && ! $diagnostics['ready']) {
             throw new RuntimeException('OCR locale non disponibile: installare Tesseract e Poppler (pdftoppm).');
+        }
+
+        if ($provider === 'bedrock' && ! $diagnostics['pdftoppm']) {
+            throw new RuntimeException('Poppler (pdftoppm) è necessario per convertire le pagine PDF prima di inviarle a Bedrock.');
         }
 
         $pdf = new Fpdi;
@@ -62,7 +68,7 @@ class LocalPayrollOcrService
         for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
             $pagePath = "{$directory}/page-{$pageNumber}.pdf";
             $this->extractPages($source, [$pageNumber], Storage::disk('local')->path($pagePath));
-            $text = $this->ocrPage($source, $pageNumber, $diagnostics['languages']);
+            $text = $this->ocrPage($source, $pageNumber, $diagnostics['languages'], $provider);
             $match = $this->matchSocio($text, $socios);
 
             $distribution->pages()->updateOrCreate(
@@ -122,12 +128,10 @@ class LocalPayrollOcrService
     /**
      * @param  array<int, string>  $languages
      */
-    private function ocrPage(string $source, int $pageNumber, array $languages): string
+    private function ocrPage(string $source, int $pageNumber, array $languages, string $provider): string
     {
         $prefix = storage_path('app/private/payroll/ocr-'.Str::uuid());
         $pdftoppm = $this->findExecutable('pdftoppm');
-        $tesseract = $this->findExecutable('tesseract');
-
         $render = new Process([
             $pdftoppm, '-f', (string) $pageNumber, '-l', (string) $pageNumber,
             '-singlefile', '-jpeg', '-r', '220', $source, $prefix,
@@ -136,11 +140,21 @@ class LocalPayrollOcrService
         $render->mustRun();
 
         $image = "{$prefix}.jpg";
-        $language = in_array('ita', $languages, true) ? 'ita+eng' : 'eng';
-        $ocr = new Process([$tesseract, $image, 'stdout', '-l', $language, '--psm', '6']);
-        $ocr->setTimeout(120);
 
         try {
+            if ($provider === 'bedrock') {
+                return app(BedrockPayrollOcrService::class)->recognize($image);
+            }
+
+            $tesseract = $this->findExecutable('tesseract');
+
+            if (! $tesseract) {
+                throw new RuntimeException('Tesseract non disponibile.');
+            }
+
+            $language = in_array('ita', $languages, true) ? 'ita+eng' : 'eng';
+            $ocr = new Process([$tesseract, $image, 'stdout', '-l', $language, '--psm', '6']);
+            $ocr->setTimeout(120);
             $ocr->mustRun();
 
             return trim($ocr->getOutput());

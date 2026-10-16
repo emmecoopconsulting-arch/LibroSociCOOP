@@ -60,7 +60,7 @@ class DistribuisciBustePaga extends Page
         return $schema
             ->components([
                 Section::make('Nuova distribuzione')
-                    ->description('Carica un PDF unico. Ogni pagina viene letta localmente e proposta in associazione a un socio.')
+                    ->description('Carica un PDF unico. Ogni pagina viene letta con il motore OCR configurato nelle Impostazioni e proposta in associazione a un socio.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('period')
@@ -93,7 +93,7 @@ class DistribuisciBustePaga extends Page
                 ->footer([
                     Actions::make([
                         Action::make('analyze')
-                            ->label('Avvia OCR locale')
+                            ->label('Avvia OCR')
                             ->icon('heroicon-o-document-magnifying-glass')
                             ->submit('analyze'),
                         Action::make('distribute')
