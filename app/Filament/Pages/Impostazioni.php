@@ -413,7 +413,7 @@ class Impostazioni extends Page
                 ->body('Il profilo di inferenza ha risposto correttamente.')
                 ->success()
                 ->send();
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             report($exception);
             Notification::make()
                 ->title('Connessione Bedrock non riuscita')
