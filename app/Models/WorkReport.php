@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\S3ArchiveService;
+use App\Services\WorkReportProtocolService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,7 +36,15 @@ class WorkReport extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (WorkReport $report): void {
+            $report->protocollo = app(WorkReportProtocolService::class)->next($report->getConnection());
+        });
+
         static::saving(function (WorkReport $report): void {
+            if ($report->exists) {
+                $report->protocollo = $report->getOriginal('protocollo');
+            }
+
             $report->syncWorkSiteReference();
             $report->syncOperatorHours();
         });

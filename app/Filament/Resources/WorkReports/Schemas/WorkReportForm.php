@@ -27,9 +27,10 @@ class WorkReportForm
                     ->schema([
                         TextInput::make('protocollo')
                             ->label('Protocollo')
-                            ->required()
-                            ->maxLength(30)
-                            ->unique(ignoreRecord: true),
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Assegnato al salvataggio')
+                            ->helperText('Generato automaticamente dal sistema e non modificabile.'),
                         DatePicker::make('data_intervento')
                             ->label('Data intervento')
                             ->required()

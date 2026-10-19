@@ -2,6 +2,22 @@
 
 Mini gestionale Laravel + Filament per il libro soci di una cooperativa sociale.
 
+## Protocollo dei rapportini di lavoro
+
+Ogni nuovo rapportino riceve al salvataggio un protocollo automatico nel formato
+`RI-2026-000001`. L'anno corrisponde all'inserimento, anche per interventi retrodatati.
+Il progressivo riparte ogni anno e viene assegnato con un contatore nel database
+protetto da transazione e blocco della riga per gli inserimenti contemporanei.
+Il protocollo non si modifica dal modulo e rimane invariato agli aggiornamenti.
+I protocolli preesistenti vengono conservati; alla prima assegnazione annuale il
+contatore prosegue dopo il massimo numero esistente nel formato `RI-ANNO-NUMERO`.
+La cancellazione di un nuovo rapportino non rende nuovamente disponibile il numero.
+La sequenza puo presentare salti in caso di salvataggi non completati.
+
+Dopo l'aggiornamento eseguire `php artisan migrate --force` per creare la tabella
+dei contatori prima di inserire nuovi rapportini. Verifica dedicata:
+`php artisan test --filter='WorkReportProtocolTest|WorkAssignmentTest'`.
+
 ## Stack
 
 - Laravel 13

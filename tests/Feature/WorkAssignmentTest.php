@@ -168,8 +168,9 @@ class WorkAssignmentTest extends TestCase
         Storage::disk('local')->assertExists($archived->pdf_path);
     }
 
-    public function test_work_report_uses_manual_protocol_and_tracks_operators(): void
+    public function test_work_report_uses_automatic_protocol_and_tracks_operators(): void
     {
+        $this->travelTo(now()->setDate(2026, 10, 19));
         $socio = $this->socio('Paolo', 'Neri', 'NREPLA80A01H501D');
         $site = WorkSite::create([
             'nome' => 'Cantiere archivio',
@@ -188,7 +189,7 @@ class WorkAssignmentTest extends TestCase
             'rapportino_path' => 'rapporti-interventi/rapportino-1.pdf',
         ]);
 
-        $this->assertSame('RI-2026-010', $report->protocollo);
+        $this->assertSame('RI-2026-000001', $report->protocollo);
         $this->assertSame([$socio->id], $report->socio_ids);
         $this->assertSame('4.00', $report->total_hours);
         $this->assertTrue($site->reports()->whereKey($report)->exists());
