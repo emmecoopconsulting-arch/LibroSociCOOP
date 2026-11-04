@@ -67,6 +67,10 @@ class SocioForm
                             ->required()
                             ->default('ordinario')
                             ->live(),
+                        Toggle::make('socio_svantaggiato')
+                            ->label('Socio svantaggiato')
+                            ->helperText('Per soci lavoratori di cooperative sociali di tipo B, secondo l’art. 4 della Legge 381/1991.')
+                            ->live(),
                         Select::make('stato')
                             ->label('Stato')
                             ->options(Socio::STATI)
@@ -128,6 +132,49 @@ class SocioForm
                             ->helperText(fn ($get): ?string => $get('stato') === 'recesso' ? 'Escluso dal capitale sociale e azzerato al salvataggio.' : null)
                             ->disabled(fn ($get): bool => $get('tipologia') === Socio::TIPOLOGIA_MEMBRO_CDA || $get('stato') === 'recesso')
                             ->dehydrated(),
+                    ]),
+                Section::make('Condizione di svantaggio')
+                    ->description('Inserire solo i riferimenti necessari a documentare la categoria prevista dalla normativa. Evitare dettagli diagnostici nelle note.')
+                    ->columns(2)
+                    ->visible(fn ($get): bool => (bool) $get('socio_svantaggiato'))
+                    ->schema([
+                        Select::make('svantaggio_categoria')
+                            ->label('Categoria')
+                            ->options(Socio::CATEGORIE_SVANTAGGIO)
+                            ->required(fn ($get): bool => (bool) $get('socio_svantaggiato'))
+                            ->native(false)
+                            ->searchable(),
+                        DatePicker::make('svantaggio_data_decorrenza')
+                            ->label('Data di decorrenza'),
+                        DatePicker::make('svantaggio_data_cessazione')
+                            ->label('Data di cessazione / scadenza'),
+                        TextInput::make('svantaggio_ente')
+                            ->label('Ente che ha rilasciato l’attestazione')
+                            ->maxLength(255),
+                        TextInput::make('svantaggio_riferimento')
+                            ->label('Numero o protocollo')
+                            ->maxLength(255),
+                        DatePicker::make('svantaggio_data_documento')
+                            ->label('Data del documento'),
+                        FileUpload::make('svantaggio_documento_path')
+                            ->label('Documento attestante')
+                            ->disk('local')
+                            ->directory('svantaggio-soci')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(15360)
+                            ->downloadable()
+                            ->getDownloadableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                                'download' => true,
+                            ]))
+                            ->openable()
+                            ->getOpenableFileUrlUsing(fn (string $file): string => route('local-files.file', [
+                                'path' => Crypt::encryptString($file),
+                            ]))
+                            ->columnSpanFull(),
+                        Textarea::make('svantaggio_note')
+                            ->label('Note amministrative')
+                            ->columnSpanFull(),
                     ]),
                 Section::make('Contratto di lavoro')
                     ->columns(2)

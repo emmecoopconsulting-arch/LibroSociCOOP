@@ -136,6 +136,10 @@ class S3ArchiveService
                         $this->syncLocalToS3($socio->verbale_cda_path, $this->socioS3Path($socio, 'verbali-cda', $socio->verbale_cda_path), $result);
                     }
 
+                    if (filled($socio->svantaggio_documento_path)) {
+                        $this->syncLocalToS3($socio->svantaggio_documento_path, $this->socioS3Path($socio, 'svantaggio-soci', $socio->svantaggio_documento_path), $result);
+                    }
+
                     foreach ($socio->documents as $document) {
                         if (filled($document->file_path)) {
                             $this->syncLocalToS3($document->file_path, $this->socioDocumentS3Path($document), $result);

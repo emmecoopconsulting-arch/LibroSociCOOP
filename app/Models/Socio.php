@@ -31,6 +31,15 @@ use Spatie\Activitylog\Support\LogOptions;
     'data_ammissione',
     'verbale_cda_path',
     'stato',
+    'socio_svantaggiato',
+    'svantaggio_categoria',
+    'svantaggio_data_decorrenza',
+    'svantaggio_data_cessazione',
+    'svantaggio_ente',
+    'svantaggio_riferimento',
+    'svantaggio_data_documento',
+    'svantaggio_documento_path',
+    'svantaggio_note',
     'is_cda_member',
     'carica_sociale',
     'data_uscita',
@@ -66,6 +75,20 @@ class Socio extends Model
         'consigliere' => 'Consigliere',
     ];
 
+    public const CATEGORIE_SVANTAGGIO = [
+        'invalidita_fisica' => 'Invalidità fisica',
+        'invalidita_psichica' => 'Invalidità psichica',
+        'invalidita_sensoriale' => 'Invalidità sensoriale',
+        'ex_degente_psichiatrico' => 'Ex degente di ospedale psichiatrico, anche giudiziario',
+        'trattamento_psichiatrico' => 'Persona in trattamento psichiatrico',
+        'dipendenza_sostanze' => 'Persona con dipendenza da sostanze',
+        'dipendenza_alcol' => 'Persona con dipendenza da alcol',
+        'minore_difficolta_familiare' => 'Minore in età lavorativa in situazione di difficoltà familiare',
+        'detenuto_internato' => 'Persona detenuta o internata',
+        'misura_alternativa' => 'Condannato o internato ammesso a misura alternativa o al lavoro all’esterno',
+        'altra_categoria_normativa' => 'Altra categoria prevista dalla normativa',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -73,6 +96,10 @@ class Socio extends Model
             'data_ammissione' => 'date',
             'data_uscita' => 'date',
             'is_cda_member' => 'boolean',
+            'socio_svantaggiato' => 'boolean',
+            'svantaggio_data_decorrenza' => 'date',
+            'svantaggio_data_cessazione' => 'date',
+            'svantaggio_data_documento' => 'date',
             'ha_permesso_soggiorno' => 'boolean',
             'scadenza_permesso_soggiorno' => 'date',
             'quota_sociale' => 'decimal:2',
@@ -98,6 +125,10 @@ class Socio extends Model
             if (filled($socio->verbale_cda_path)) {
                 app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'verbali-cda', $socio->verbale_cda_path);
             }
+
+            if (filled($socio->svantaggio_documento_path)) {
+                app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'svantaggio-soci', $socio->svantaggio_documento_path);
+            }
         });
 
         static::updating(function (Socio $socio): void {
@@ -108,7 +139,18 @@ class Socio extends Model
 
         static::updated(function (Socio $socio): void {
             foreach ($socio->getChanges() as $field => $newValue) {
-                if (in_array($field, ['updated_at'], true)) {
+                if (in_array($field, [
+                    'updated_at',
+                    'socio_svantaggiato',
+                    'svantaggio_categoria',
+                    'svantaggio_data_decorrenza',
+                    'svantaggio_data_cessazione',
+                    'svantaggio_ente',
+                    'svantaggio_riferimento',
+                    'svantaggio_data_documento',
+                    'svantaggio_documento_path',
+                    'svantaggio_note',
+                ], true)) {
                     continue;
                 }
 
@@ -122,6 +164,10 @@ class Socio extends Model
 
             if ($socio->wasChanged('verbale_cda_path') && filled($socio->verbale_cda_path)) {
                 app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'verbali-cda', $socio->verbale_cda_path);
+            }
+
+            if ($socio->wasChanged('svantaggio_documento_path') && filled($socio->svantaggio_documento_path)) {
+                app(S3ArchiveService::class)->archiveSocioLocalFile($socio, 'svantaggio-soci', $socio->svantaggio_documento_path);
             }
         });
     }
@@ -237,6 +283,17 @@ class Socio extends Model
         return LogOptions::defaults()
             ->logFillable()
             ->logOnlyDirty()
-            ->dontLogEmptyChanges();
+            ->dontLogEmptyChanges()
+            ->logExcept([
+                'socio_svantaggiato',
+                'svantaggio_categoria',
+                'svantaggio_data_decorrenza',
+                'svantaggio_data_cessazione',
+                'svantaggio_ente',
+                'svantaggio_riferimento',
+                'svantaggio_data_documento',
+                'svantaggio_documento_path',
+                'svantaggio_note',
+            ]);
     }
 }

@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function (): void {
         $allowedPrefixes = [
             'assemblee/',
             'documenti-soci/',
+            'svantaggio-soci/',
             'ordini-servizio/',
             'rapporti-interventi/',
             'verbali/',
