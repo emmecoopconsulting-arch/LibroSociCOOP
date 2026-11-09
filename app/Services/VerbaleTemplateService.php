@@ -84,9 +84,19 @@ class VerbaleTemplateService
             ->where('tipo', $verbale->tipo)
             ->first()?->contenuto ?: $this->defaultContent($verbale->tipo);
 
-        return RichContentRenderer::make($content)
+        $rendered = RichContentRenderer::make($content)
             ->mergeTags($this->mergeTagValues($verbale, $riepilogoSociale))
             ->toHtml();
+
+        $templateJson = json_encode($content, JSON_THROW_ON_ERROR);
+
+        if ($riepilogoSociale && $verbale->tipo !== 'ammissione' && ! str_contains($templateJson, 'riepilogo.sociale')) {
+            $rendered .= '<h2>Riepilogo sociale progressivo</h2>'.view('pdf.verbali.partials.riepilogo-sociale', [
+                'riepilogoSociale' => $riepilogoSociale,
+            ])->render();
+        }
+
+        return $rendered;
     }
 
     public function ensureDefaults(): void

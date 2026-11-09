@@ -5,22 +5,22 @@
 <table class="social-summary">
     <tbody>
         <tr>
-            <th>Numero di soci ordinari prima dell'ammissione</th>
+            <th>Numero di soci ordinari prima della variazione</th>
             <td>{{ $riepilogoSociale['soci_ordinari_prima'] }}</td>
         </tr>
         <tr>
-            <th>Capitale sociale complessivo prima dell'ammissione</th>
+            <th>Capitale sociale complessivo prima della variazione</th>
             <td>{{ $formatEuro($riepilogoSociale['capitale_sociale_prima']) }}</td>
         </tr>
         <tr class="social-summary-spacer">
             <td colspan="2">&nbsp;</td>
         </tr>
         <tr>
-            <th>Soci ordinari entrati</th>
+            <th>Soci ordinari entrati con la variazione</th>
             <td>N° {{ $riepilogoSociale['soci_ordinari_entrati'] }}</td>
         </tr>
         <tr>
-            <th>Soci ordinari usciti</th>
+            <th>Soci ordinari usciti con la variazione</th>
             <td>N° {{ $riepilogoSociale['soci_ordinari_usciti'] }}</td>
         </tr>
         <tr>

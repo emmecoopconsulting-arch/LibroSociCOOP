@@ -81,12 +81,12 @@ class VerbalePdfService
         );
     }
 
-    public function generateVariation(Verbale $verbale): Verbale
+    public function generateVariation(Verbale $verbale, ?array $riepilogoSociale = null): Verbale
     {
         $verbale->loadMissing(['socio', 'variation']);
 
         $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.template', [
-            'content' => $this->templateService->render($verbale),
+            'content' => $this->templateService->render($verbale, $riepilogoSociale),
             'documentHeader' => DocumentHeaderSetting::current(),
             'socio' => $verbale->socio,
             'variation' => $verbale->variation,
@@ -105,6 +105,50 @@ class VerbalePdfService
 
         Storage::disk('local')->put($path, $contents);
         $this->s3ArchiveService->archiveSocioLocalFile($verbale->socio, 'verbali', $path, $contents);
+
+        $verbale->update([
+            'stato' => 'generato',
+            'file_path' => $path,
+            'generato_il' => now(),
+        ]);
+
+        return $verbale;
+    }
+
+    public function generateProgressive(Verbale $verbale, array $riepilogoSociale, ?SocioVariation $variation = null): Verbale
+    {
+        if (! $verbale->exists) {
+            $verbale->save();
+
+            if ($variation) {
+                $variation->forceFill(['verbale_id' => $verbale->id])->save();
+            }
+        }
+
+        if ($verbale->tipo !== 'ammissione') {
+            return $this->generateVariation($verbale, $riepilogoSociale);
+        }
+
+        $verbale->loadMissing('socio');
+        $socio = $verbale->socio;
+        $verbale->forceFill([
+            'titolo' => $this->titolo($socio),
+            'data_verbale' => $socio->data_ammissione,
+        ])->save();
+
+        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.verbali.template', [
+            'content' => $this->templateService->render($verbale, $riepilogoSociale),
+            'documentHeader' => DocumentHeaderSetting::current(),
+            'socio' => $socio,
+            'verbale' => $verbale,
+        ]));
+
+        $year = $verbale->data_verbale?->format('Y') ?? now()->format('Y');
+        $path = sprintf('verbali/%s/verbale-%s.pdf', $year, str($socio->codice_socio)->slug());
+        $contents = $pdf->output();
+
+        Storage::disk('local')->put($path, $contents);
+        $this->s3ArchiveService->archiveSocioLocalFile($socio, 'verbali', $path, $contents);
 
         $verbale->update([
             'stato' => 'generato',
