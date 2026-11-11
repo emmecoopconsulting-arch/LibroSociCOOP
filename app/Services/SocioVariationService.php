@@ -89,23 +89,37 @@ class SocioVariationService
             }
 
             if ($decisione === 'respinta') {
+                if ($variation->stato === 'applicata') {
+                    throw ValidationException::withMessages([
+                        'decisioni_variazioni_cda' => 'La variazione risulta già applicata. Per respingerla serve una variazione correttiva, non un semplice cambio di stato.',
+                    ]);
+                }
+
                 $variation->update(['approvazione_cda' => 'respinta']);
 
                 return $variation->refresh();
             }
 
             $socio = Socio::query()->lockForUpdate()->findOrFail($variation->socio_id);
-            $verbale = $variation->verbale ?: $this->createVerbale($socio, [
-                'tipo' => $variation->tipo,
-                'data_verbale' => $variation->data_verbale,
-            ]);
 
-            $this->applyVariation($socio, $variation, $verbale);
+            if ($variation->stato !== 'applicata') {
+                $verbale = $variation->verbale ?: $this->createVerbale($socio, [
+                    'tipo' => $variation->tipo,
+                    'data_verbale' => $variation->data_verbale,
+                ]);
+
+                $this->applyVariation($socio, $variation, $verbale);
+                $snapshotSuccessivo = $this->snapshot($socio->refresh());
+            } else {
+                // Retroactive ratification: the effects already exist, so never
+                // replay an old variation over a newer member/contract state.
+                $snapshotSuccessivo = $variation->snapshot_successivo ?: $this->snapshot($socio);
+            }
 
             $variation->forceFill([
                 'stato' => 'applicata',
                 'approvazione_cda' => 'approvata',
-                'snapshot_successivo' => $this->snapshot($socio->refresh()),
+                'snapshot_successivo' => $snapshotSuccessivo,
             ])->save();
 
             return $variation->refresh();
