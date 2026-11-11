@@ -77,7 +77,6 @@ class Assemblea extends Page
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set): void {
                                 if ($state === 'cda') {
-                                    $set('decisioni_variazioni_cda', app(AssembleaService::class)->pendingCdaVariations());
                                     $set('punti_odg', [[
                                         'titolo' => 'Esame e ratifica delle variazioni dei soci',
                                         'descrizione' => 'Il CDA prende atto delle variazioni effettuate e delibera sulla ratifica dei verbali individuali riportati nel riepilogo.',
@@ -181,24 +180,24 @@ class Assemblea extends Page
                         Repeater::make('decisioni_variazioni_cda')
                             ->label('Variazioni pendenti')
                             ->hiddenLabel()
-                            ->addable(false)
-                            ->deletable(false)
+                            ->addActionLabel('Aggiungi variazione da esaminare')
+                            ->deletable(true)
                             ->reorderable(false)
                             ->columns(2)
                             ->schema([
-                                TextInput::make('label')
-                                    ->label('Verbale / socio')
-                                    ->disabled()
-                                    ->dehydrated(false)
+                                Select::make('socio_variation_id')
+                                    ->label('Variazione')
+                                    ->options(fn (): array => app(AssembleaService::class)->pendingCdaVariationOptions())
+                                    ->searchable()
+                                    ->preload()
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                    ->required()
                                     ->columnSpan(1),
                                 Select::make('decisione_cda')
                                     ->label('Decisione')
                                     ->options(SocioVariation::DECISIONI_CDA)
                                     ->placeholder('Da deliberare')
                                     ->columnSpan(1),
-                                TextInput::make('socio_variation_id')
-                                    ->hidden()
-                                    ->dehydrated(),
                             ]),
                     ]),
                 Section::make('Delibere soci / variazioni')
@@ -546,12 +545,6 @@ class Assemblea extends Page
                 ->map(fn (SocioVariation $variation): array => [
                     'socio_variation_id' => $variation->id,
                     'decisione_cda' => $variation->decisione_cda,
-                    'label' => sprintf('%s - %s %s | %s',
-                        $variation->socio?->codice_socio,
-                        $variation->socio?->cognome,
-                        $variation->socio?->nome,
-                        SocioVariation::TIPI[$variation->tipo] ?? $variation->tipo,
-                    ),
                 ])->values()->all(),
         ];
     }

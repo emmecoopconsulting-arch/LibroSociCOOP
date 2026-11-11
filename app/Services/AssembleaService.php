@@ -87,7 +87,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
-            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data, $assemblea));
+            $this->syncCdaVariations($assemblea, $data['decisioni_variazioni_cda'] ?? []);
 
             return $assemblea->refresh();
         });
@@ -109,7 +109,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
-            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data, $assemblea));
+            $this->syncCdaVariations($assemblea, $data['decisioni_variazioni_cda'] ?? []);
 
             return $assemblea->refresh();
         });
@@ -292,7 +292,7 @@ class AssembleaService
             ->all();
     }
 
-    public function pendingCdaVariations(?Assemblea $assemblea = null): array
+    public function pendingCdaVariationOptions(): array
     {
         return SocioVariation::query()
             ->where('approvazione_cda', 'in_attesa')
@@ -300,12 +300,8 @@ class AssembleaService
             ->orderBy('data_verbale')
             ->orderBy('id')
             ->get()
-            ->map(fn (SocioVariation $variation): array => [
-                'socio_variation_id' => $variation->id,
-                'decisione_cda' => $assemblea && $variation->cda_assemblea_id === $assemblea->id
-                    ? $variation->decisione_cda
-                    : null,
-                'label' => sprintf(
+            ->mapWithKeys(fn (SocioVariation $variation): array => [
+                $variation->id => sprintf(
                     '%s - %s %s | %s | effetto %s',
                     $variation->socio?->codice_socio,
                     $variation->socio?->cognome,
@@ -315,22 +311,6 @@ class AssembleaService
                 ),
             ])
             ->all();
-    }
-
-    private function cdaDecisionRows(array $data, Assemblea $assemblea): array
-    {
-        if (($data['tipo_assemblea'] ?? 'soci') !== 'cda') {
-            return [];
-        }
-
-        $rows = collect($data['decisioni_variazioni_cda'] ?? [])
-            ->filter(fn (array $row): bool => filled($row['socio_variation_id'] ?? null))
-            ->values()
-            ->all();
-
-        // The repeater can be empty after a Livewire state refresh. Keep all
-        // pending variations attached so the active meeting never loses them.
-        return $rows ?: $this->pendingCdaVariations($assemblea);
     }
 
     private function syncCdaVariations(Assemblea $assemblea, array $decisioni): void
