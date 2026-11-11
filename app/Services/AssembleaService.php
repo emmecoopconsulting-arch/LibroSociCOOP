@@ -109,7 +109,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
-            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data));
+            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data, $assemblea));
 
             return $assemblea->refresh();
         });
