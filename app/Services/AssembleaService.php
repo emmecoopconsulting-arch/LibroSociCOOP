@@ -87,7 +87,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
-            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data));
+            $this->syncCdaVariations($assemblea, $this->cdaDecisionRows($data, $assemblea));
 
             return $assemblea->refresh();
         });
@@ -292,7 +292,7 @@ class AssembleaService
             ->all();
     }
 
-    public function pendingCdaVariations(): array
+    public function pendingCdaVariations(?Assemblea $assemblea = null): array
     {
         return SocioVariation::query()
             ->where('approvazione_cda', 'in_attesa')
@@ -302,7 +302,9 @@ class AssembleaService
             ->get()
             ->map(fn (SocioVariation $variation): array => [
                 'socio_variation_id' => $variation->id,
-                'decisione_cda' => null,
+                'decisione_cda' => $assemblea && $variation->cda_assemblea_id === $assemblea->id
+                    ? $variation->decisione_cda
+                    : null,
                 'label' => sprintf(
                     '%s - %s %s | %s | effetto %s',
                     $variation->socio?->codice_socio,
@@ -315,7 +317,7 @@ class AssembleaService
             ->all();
     }
 
-    private function cdaDecisionRows(array $data): array
+    private function cdaDecisionRows(array $data, Assemblea $assemblea): array
     {
         if (($data['tipo_assemblea'] ?? 'soci') !== 'cda') {
             return [];
@@ -328,7 +330,7 @@ class AssembleaService
 
         // The repeater can be empty after a Livewire state refresh. Keep all
         // pending variations attached so the active meeting never loses them.
-        return $rows ?: $this->pendingCdaVariations();
+        return $rows ?: $this->pendingCdaVariations($assemblea);
     }
 
     private function syncCdaVariations(Assemblea $assemblea, array $decisioni): void
