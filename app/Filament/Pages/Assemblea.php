@@ -330,7 +330,7 @@ class Assemblea extends Page
         try {
             $data = $this->form->getState();
             $assemblea = app(AssembleaService::class)->updateDigital($assemblea, $data);
-            $this->data = $this->stateFromAssemblea($assemblea->load(['presenze.socio', 'puntiOdg']));
+            $this->data = $this->stateFromAssemblea($assemblea->load(['presenze.socio', 'puntiOdg', 'cdaVariations.socio']));
             $this->form->fill($this->data);
         } catch (ValidationException $exception) {
             throw $exception;
