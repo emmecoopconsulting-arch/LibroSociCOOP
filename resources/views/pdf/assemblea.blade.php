@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 108px 46px 56px; }
+        @if ($assemblea->tipo_assemblea === 'cda')
+            @page { margin: 34px 38px 32px; }
+        @else
+            @page { margin: 108px 46px 56px; }
+        @endif
         body { font-family: DejaVu Sans, sans-serif; color: #111827; font-size: 12px; line-height: 1.55; }
         h1 { font-size: 22px; margin-bottom: 22px; text-align: center; }
         h2 { font-size: 15px; margin-top: 24px; margin-bottom: 10px; }
@@ -17,11 +21,24 @@
         .document-header-logo { float: left; max-height: 50px; max-width: 150px; margin-right: 16px; }
         .document-header-text { font-size: 10px; line-height: 1.35; color: #374151; white-space: normal; }
         .signature-footer { margin-top: 76px; display: flex; justify-content: space-between; }
+        .signature-footer > div { width: 40%; }
+        body.cda { font-size: 10px; line-height: 1.22; }
+        body.cda h1 { font-size: 17px; margin: 0 0 10px; }
+        body.cda h2 { font-size: 11px; margin: 10px 0 5px; }
+        body.cda p { margin: 0 0 5px; }
+        body.cda .meta { margin-bottom: 8px; }
+        body.cda table { font-size: 9px; line-height: 1.15; margin: 6px 0; page-break-inside: avoid; }
+        body.cda th, body.cda td { border: 0.5px solid #9ca3af; padding: 3px 4px; }
+        body.cda th { background: #f3f4f6; }
+        body.cda .signature-footer { margin-top: 24px; }
+        body.cda .signature-footer > div { width: 44%; text-align: center; }
     </style>
 </head>
-<body>
-    @include('pdf.partials.document-header')
-    @include('pdf.partials.document-footer')
+<body class="{{ $assemblea->tipo_assemblea === 'cda' ? 'cda' : '' }}">
+    @if ($assemblea->tipo_assemblea !== 'cda')
+        @include('pdf.partials.document-header')
+        @include('pdf.partials.document-footer')
+    @endif
 
     <h1>{{ $assemblea->titolo }}</h1>
 
@@ -113,17 +130,22 @@
     @if ($assemblea->tipo_assemblea === 'cda')
         <h2>Il CDA prende atto delle variazioni effettuate e delibera sui verbali individuali sottoposti a ratifica.</h2>
         @if ($assemblea->cdaDecisions->isNotEmpty())
-            <table>
+            <table class="cda-ratifications">
                 <thead>
-                    <tr><th>Verbale</th><th>Socio</th><th>Variazione</th><th>Esito CDA</th></tr>
+                    <tr>
+                        <th>Socio</th>
+                        <th>Variazione</th>
+                        <th>Riferimento verbale</th>
+                        <th>Esito CDA</th>
+                    </tr>
                 </thead>
                 <tbody>
                     @foreach ($assemblea->cdaDecisions as $decision)
                         @php($variation = $decision->variation)
                         <tr>
-                            <td>{{ $variation?->verbale?->titolo }}<br>Data: {{ $variation?->data_verbale?->format('d/m/Y') }}</td>
                             <td>{{ $variation?->socio?->codice_socio }}<br>{{ $variation?->socio?->cognome }} {{ $variation?->socio?->nome }}</td>
                             <td>{{ $tipoLabels[$variation?->tipo] ?? $variation?->tipo }}</td>
+                            <td>{{ $variation?->verbale?->titolo ?: '-' }}<br>{{ $variation?->data_verbale?->format('d/m/Y') ?: '' }}</td>
                             <td>{{ \App\Models\SocioVariation::DECISIONI_CDA[$decision->decisione] ?? $decision->decisione }}</td>
                         </tr>
                     @endforeach
@@ -187,8 +209,13 @@
     @endif
 
     <div class="signature-footer">
-        <div>Il Presidente</div>
-        <div>Il Segretario</div>
+        @if ($assemblea->tipo_assemblea === 'cda')
+            <div>Il Segretario<br><br><br>{{ $assemblea->segretario }}</div>
+            <div>Il Presidente<br><br><br>{{ $assemblea->presidente }}</div>
+        @else
+            <div>Il Presidente</div>
+            <div>Il Segretario</div>
+        @endif
     </div>
 </body>
 </html>

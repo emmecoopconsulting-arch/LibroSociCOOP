@@ -192,11 +192,15 @@ class AssembleaService
     {
         $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'cdaVariations.socio', 'cdaVariations.verbale', 'cdaDecisions.variation.socio', 'cdaDecisions.variation.verbale', 'presenze.socio', 'puntiOdg']);
 
-        $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.assemblea', [
+        $pdf = Pdf::loadView('pdf.assemblea', [
             'assemblea' => $assemblea,
             'documentHeader' => DocumentHeaderSetting::current(),
             'tipoLabels' => SocioVariation::TIPI,
-        ]));
+        ]);
+
+        if ($assemblea->tipo_assemblea !== 'cda') {
+            $pdf = $this->pageNumberService->apply($pdf);
+        }
 
         $path = sprintf(
             'assemblee/%s/verbale-assemblea-%s-%s.pdf',
