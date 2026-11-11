@@ -14,14 +14,14 @@ class SocioVariationService
 {
     public function createAndApply(array $data): SocioVariation
     {
-        return DB::transaction(function () use ($data): SocioVariation {
+        $variation = DB::transaction(function () use ($data): SocioVariation {
             $socio = Socio::query()->lockForUpdate()->findOrFail($data['socio_id']);
             $this->validateBusinessRules($socio, $data);
 
-            $previousSnapshot = $this->snapshot($socio);
             $verbale = $this->createVerbale($socio, $data);
+            $soloDocumentoInterno = in_array($data['tipo'], SocioVariation::TIPI_DOCUMENTAZIONE_INTERNA, true);
 
-            $variation = SocioVariation::create([
+            return SocioVariation::create([
                 ...Arr::only($data, [
                     'socio_id',
                     'tipo',
@@ -34,18 +34,88 @@ class SocioVariationService
                     'note',
                 ]),
                 'verbale_id' => $verbale->id,
-                'stato' => 'applicata',
-                'snapshot_precedente' => $previousSnapshot,
+                'stato' => $soloDocumentoInterno ? 'documentata' : 'bozza',
+                'approvazione_cda' => $soloDocumentoInterno ? 'storica' : 'in_attesa',
+                'snapshot_precedente' => $this->snapshot($socio),
+                'snapshot_successivo' => $soloDocumentoInterno ? $this->snapshot($socio) : null,
+            ]);
+        });
+
+        $variation->loadMissing('verbale');
+        if ($variation->verbale) {
+            app(VerbalePdfService::class)->generate($variation->verbale);
+        }
+
+        return $variation->refresh();
+    }
+
+    public function decidePending(
+        SocioVariation $variation,
+        \App\Models\Assemblea $assemblea,
+        string $decisione,
+        ?string $dataDelibera = null,
+    ): SocioVariation {
+        if (! array_key_exists($decisione, SocioVariation::DECISIONI_CDA)) {
+            throw ValidationException::withMessages([
+                'decisioni_variazioni_cda' => 'Seleziona un esito valido per la variazione.',
+            ]);
+        }
+
+        $variation = DB::transaction(function () use ($variation, $assemblea, $decisione, $dataDelibera): SocioVariation {
+            $variation = SocioVariation::query()->lockForUpdate()->findOrFail($variation->id);
+
+            if ($variation->approvazione_cda !== 'in_attesa') {
+                throw ValidationException::withMessages([
+                    'decisioni_variazioni_cda' => 'La variazione non è più in attesa di decisione.',
+                ]);
+            }
+
+            $assemblea->cdaDecisions()->updateOrCreate(
+                ['socio_variation_id' => $variation->id],
+                [
+                    'decisione' => $decisione,
+                    'data_delibera' => $dataDelibera ?: $assemblea->data_assemblea,
+                ],
+            );
+
+            $variation->forceFill([
+                'cda_assemblea_id' => $assemblea->id,
+                'decisione_cda' => $decisione,
+                'data_delibera_cda' => $dataDelibera ?: $assemblea->data_assemblea,
+            ])->save();
+
+            if ($decisione === 'rinviata') {
+                return $variation->refresh();
+            }
+
+            if ($decisione === 'respinta') {
+                $variation->update(['approvazione_cda' => 'respinta']);
+
+                return $variation->refresh();
+            }
+
+            $socio = Socio::query()->lockForUpdate()->findOrFail($variation->socio_id);
+            $verbale = $variation->verbale ?: $this->createVerbale($socio, [
+                'tipo' => $variation->tipo,
+                'data_verbale' => $variation->data_verbale,
             ]);
 
             $this->applyVariation($socio, $variation, $verbale);
 
             $variation->forceFill([
+                'stato' => 'applicata',
+                'approvazione_cda' => 'approvata',
                 'snapshot_successivo' => $this->snapshot($socio->refresh()),
             ])->save();
 
-            return $variation;
+            return $variation->refresh();
         });
+
+        if ($variation->verbale) {
+            app(VerbalePdfService::class)->generate($variation->verbale);
+        }
+
+        return $variation;
     }
 
     private function validateBusinessRules(Socio $socio, array $data): void
@@ -84,7 +154,9 @@ class SocioVariationService
             'cessazione_rapporto' => $this->applyWorkTermination($socio, $variation),
             'recesso' => $socio->update(['stato' => 'recesso', 'data_uscita' => $variation->data_effetto]),
             'esclusione' => $socio->update(['stato' => 'escluso', 'data_uscita' => $variation->data_effetto]),
-            'sospensione' => $socio->update(['stato' => 'sospeso']),
+            // A work suspension is not a suspension of membership. Its employment
+            // effects are handled under the cooperative's approved work regulation.
+            'sospensione' => null,
             default => null,
         };
     }
@@ -170,10 +242,7 @@ class SocioVariationService
             ]);
         }
 
-        $socio->update([
-            'stato' => 'recesso',
-            'data_uscita' => $variation->data_effetto,
-        ]);
+        // Ending the work relationship does not end membership in the cooperative.
     }
 
     private function activeContract(Socio $socio): ?SocioWorkContract

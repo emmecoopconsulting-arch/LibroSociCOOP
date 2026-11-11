@@ -31,7 +31,7 @@
             @if ($assemblea->started_at)
                 alle ore {{ $assemblea->started_at->format('H:i') }}
             @endif
-            si apre l'assemblea
+            si apre {{ $assemblea->tipo_assemblea === 'cda' ? 'la riunione del Consiglio di Amministrazione' : "l'assemblea" }}
             @if ($assemblea->modalita)
                 in modalità {{ \App\Models\Assemblea::MODALITA[$assemblea->modalita] ?? $assemblea->modalita }}
             @endif
@@ -58,7 +58,7 @@
     @endif
 
     @if ($assemblea->presenze->isNotEmpty())
-        <h2>Appello soci</h2>
+        <h2>{{ $assemblea->tipo_assemblea === 'cda' ? 'Appello dei componenti del CDA' : 'Appello soci' }}</h2>
 
         <table>
             <thead>
@@ -110,9 +110,30 @@
         @endforeach
     @endif
 
-    <h2>Variazioni deliberate</h2>
-
-    @if ($assemblea->variations->isNotEmpty())
+    @if ($assemblea->tipo_assemblea === 'cda')
+        <h2>Il CDA prende atto delle variazioni effettuate e delibera sui verbali individuali sottoposti a ratifica.</h2>
+        @if ($assemblea->cdaDecisions->isNotEmpty())
+            <table>
+                <thead>
+                    <tr><th>Verbale</th><th>Socio</th><th>Variazione</th><th>Esito CDA</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($assemblea->cdaDecisions as $decision)
+                        @php($variation = $decision->variation)
+                        <tr>
+                            <td>{{ $variation?->verbale?->titolo }}<br>Data: {{ $variation?->data_verbale?->format('d/m/Y') }}</td>
+                            <td>{{ $variation?->socio?->codice_socio }}<br>{{ $variation?->socio?->cognome }} {{ $variation?->socio?->nome }}</td>
+                            <td>{{ $tipoLabels[$variation?->tipo] ?? $variation?->tipo }}</td>
+                            <td>{{ \App\Models\SocioVariation::DECISIONI_CDA[$decision->decisione] ?? $decision->decisione }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <p>Non risultano variazioni da sottoporre al CDA.</p>
+        @endif
+    @elseif ($assemblea->variations->isNotEmpty())
+        <h2>Variazioni deliberate</h2>
         <table>
             <thead>
                 <tr>

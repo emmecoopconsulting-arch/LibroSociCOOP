@@ -25,6 +25,7 @@ class AssembleaService
         $assemblea = DB::transaction(function () use ($data): Assemblea {
             $assemblea = Assemblea::create([
                 'data_assemblea' => $data['data_assemblea'],
+                'tipo_assemblea' => $data['tipo_assemblea'] ?? 'soci',
                 'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
                 'note' => $data['note'] ?? null,
                 'presidente' => $data['presidente'] ?? null,
@@ -57,9 +58,9 @@ class AssembleaService
             return $assemblea;
         });
 
-        $assemblea->loadMissing(['variations.socio', 'variations.verbale']);
+        $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'cdaVariations.socio', 'cdaVariations.verbale', 'cdaDecisions.variation.socio', 'cdaDecisions.variation.verbale']);
 
-        foreach ($assemblea->variations as $variation) {
+        foreach ($assemblea->variations->merge($assemblea->cdaVariations) as $variation) {
             if ($variation->verbale) {
                 $this->verbalePdfService->generate($variation->verbale);
             }
@@ -73,6 +74,7 @@ class AssembleaService
         return DB::transaction(function () use ($data): Assemblea {
             $assemblea = Assemblea::create([
                 'data_assemblea' => $data['data_assemblea'],
+                'tipo_assemblea' => $data['tipo_assemblea'] ?? 'soci',
                 'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
                 'note' => $data['note'] ?? null,
                 'presidente' => $data['presidente'] ?? null,
@@ -85,6 +87,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
+            $this->syncCdaVariations($assemblea, $data['decisioni_variazioni_cda'] ?? []);
 
             return $assemblea->refresh();
         });
@@ -95,6 +98,7 @@ class AssembleaService
         return DB::transaction(function () use ($assemblea, $data): Assemblea {
             $assemblea->update([
                 'data_assemblea' => $data['data_assemblea'],
+                'tipo_assemblea' => $data['tipo_assemblea'] ?? 'soci',
                 'titolo' => $data['titolo'] ?: 'Assemblea del ' . $data['data_assemblea'],
                 'note' => $data['note'] ?? null,
                 'presidente' => $data['presidente'] ?? null,
@@ -105,6 +109,7 @@ class AssembleaService
 
             $this->syncPresenze($assemblea, $this->presenzeFromDigitalData($data));
             $this->syncPuntiOdg($assemblea, $data['punti_odg'] ?? []);
+            $this->syncCdaVariations($assemblea, $data['decisioni_variazioni_cda'] ?? []);
 
             return $assemblea->refresh();
         });
@@ -126,26 +131,39 @@ class AssembleaService
         $assemblea = DB::transaction(function () use ($assemblea, $data): Assemblea {
             $assemblea = $this->updateDigital($assemblea, $data);
 
-            foreach ($data['variations'] ?? [] as $variationData) {
-                if (blank($variationData['socio_id'] ?? null) || blank($variationData['tipo'] ?? null)) {
-                    continue;
+            if ($assemblea->tipo_assemblea === 'cda') {
+                foreach ($assemblea->cdaVariations()->where('approvazione_cda', 'in_attesa')->get() as $variation) {
+                    if (filled($variation->decisione_cda)) {
+                        $this->variationService->decidePending(
+                            $variation,
+                            $assemblea,
+                            $variation->decisione_cda,
+                            $data['data_assemblea'],
+                        );
+                    }
                 }
+            } else {
+                foreach ($data['variations'] ?? [] as $variationData) {
+                    if (blank($variationData['socio_id'] ?? null) || blank($variationData['tipo'] ?? null)) {
+                        continue;
+                    }
 
-                $variation = $this->variationService->createAndApply([
-                    ...Arr::only($variationData, [
-                        'socio_id',
-                        'tipo',
-                        'data_effetto',
-                        'tipo_contratto',
-                        'data_inizio',
-                        'data_fine',
-                        'ore_settimanali',
-                        'note',
-                    ]),
-                    'data_verbale' => $data['data_assemblea'],
-                ]);
+                    $variation = $this->variationService->createAndApply([
+                        ...Arr::only($variationData, [
+                            'socio_id',
+                            'tipo',
+                            'data_effetto',
+                            'tipo_contratto',
+                            'data_inizio',
+                            'data_fine',
+                            'ore_settimanali',
+                            'note',
+                        ]),
+                        'data_verbale' => $data['data_assemblea'],
+                    ]);
 
-                $variation->update(['assemblea_id' => $assemblea->id]);
+                    $variation->update(['assemblea_id' => $assemblea->id]);
+                }
             }
 
             $assemblea->update([
@@ -156,9 +174,9 @@ class AssembleaService
             return $assemblea->refresh();
         });
 
-        $assemblea->loadMissing(['variations.socio', 'variations.verbale']);
+        $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'cdaVariations.socio', 'cdaVariations.verbale']);
 
-        foreach ($assemblea->variations as $variation) {
+        foreach ($assemblea->variations->merge($assemblea->cdaVariations) as $variation) {
             if ($variation->verbale) {
                 $this->verbalePdfService->generate($variation->verbale);
             }
@@ -172,7 +190,7 @@ class AssembleaService
 
     public function generatePdf(Assemblea $assemblea): Assemblea
     {
-        $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'presenze.socio', 'puntiOdg']);
+        $assemblea->loadMissing(['variations.socio', 'variations.verbale', 'cdaVariations.socio', 'cdaVariations.verbale', 'cdaDecisions.variation.socio', 'cdaDecisions.variation.verbale', 'presenze.socio', 'puntiOdg']);
 
         $pdf = $this->pageNumberService->apply(Pdf::loadView('pdf.assemblea', [
             'assemblea' => $assemblea,
@@ -234,15 +252,21 @@ class AssembleaService
             ->unique()
             ->values();
 
-        $deleghe = collect($data['deleghe'] ?? [])
+        $isCda = ($data['tipo_assemblea'] ?? 'soci') === 'cda';
+        $deleghe = $isCda ? collect() : collect($data['deleghe'] ?? [])
             ->filter(fn (array $delega): bool => filled($delega['socio_id'] ?? null))
             ->mapWithKeys(fn (array $delega): array => [
                 (int) $delega['socio_id'] => trim((string) ($delega['delegato_nome'] ?? '')),
             ]);
 
-        return Socio::query()
-            ->sociEffettivi()
-            ->attivi()
+        $query = Socio::query()->attivi();
+        if ($isCda) {
+            $query->where('is_cda_member', true);
+        } else {
+            $query->sociEffettivi();
+        }
+
+        return $query
             ->orderBy('cognome')
             ->orderBy('nome')
             ->get()
@@ -266,6 +290,60 @@ class AssembleaService
                 ];
             })
             ->all();
+    }
+
+    public function pendingCdaVariations(): array
+    {
+        return SocioVariation::query()
+            ->where('approvazione_cda', 'in_attesa')
+            ->with('socio')
+            ->orderBy('data_verbale')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (SocioVariation $variation): array => [
+                'socio_variation_id' => $variation->id,
+                'decisione_cda' => null,
+                'label' => sprintf(
+                    '%s - %s %s | %s | effetto %s',
+                    $variation->socio?->codice_socio,
+                    $variation->socio?->cognome,
+                    $variation->socio?->nome,
+                    SocioVariation::TIPI[$variation->tipo] ?? $variation->tipo,
+                    $variation->data_effetto?->format('d/m/Y') ?? '-',
+                ),
+            ])
+            ->all();
+    }
+
+    private function syncCdaVariations(Assemblea $assemblea, array $decisioni): void
+    {
+        if ($assemblea->tipo_assemblea !== 'cda') {
+            $assemblea->cdaVariations()->where('approvazione_cda', 'in_attesa')->update([
+                'cda_assemblea_id' => null,
+                'decisione_cda' => null,
+            ]);
+
+            return;
+        }
+
+        $rows = collect($decisioni)
+            ->filter(fn (array $row): bool => filled($row['socio_variation_id'] ?? null))
+            ->keyBy(fn (array $row): int => (int) $row['socio_variation_id']);
+
+        $assemblea->cdaVariations()
+            ->where('approvazione_cda', 'in_attesa')
+            ->whereNotIn('id', $rows->keys()->all() ?: [0])
+            ->update(['cda_assemblea_id' => null, 'decisione_cda' => null]);
+
+        foreach ($rows as $id => $row) {
+            SocioVariation::query()
+                ->whereKey($id)
+                ->where('approvazione_cda', 'in_attesa')
+                ->update([
+                    'cda_assemblea_id' => $assemblea->id,
+                    'decisione_cda' => $row['decisione_cda'] ?? null,
+                ]);
+        }
     }
 
     private function syncPresenze(Assemblea $assemblea, array $presenze): void

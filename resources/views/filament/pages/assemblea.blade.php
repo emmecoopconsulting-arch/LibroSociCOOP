@@ -40,6 +40,7 @@
                 <thead>
                     <tr class="bg-gray-50 text-gray-600">
                         <th class="px-4 py-3 font-medium">Data</th>
+                        <th class="px-4 py-3 font-medium">Tipo</th>
                         <th class="px-4 py-3 font-medium">Titolo</th>
                         <th class="px-4 py-3 font-medium">Stato</th>
                         <th class="px-4 py-3 font-medium">Appello</th>
@@ -54,11 +55,12 @@
                     @forelse ($this->recentAssemblee() as $assemblea)
                         <tr>
                             <td class="whitespace-nowrap px-4 py-3 font-medium">{{ $assemblea->data_assemblea?->format('d/m/Y') }}</td>
+                            <td class="px-4 py-3">{{ \App\Models\Assemblea::TIPI_ASSEMBLEA[$assemblea->tipo_assemblea] ?? 'Assemblea soci' }}</td>
                             <td class="px-4 py-3">{{ $assemblea->titolo }}</td>
                             <td class="whitespace-nowrap px-4 py-3">{{ \App\Models\Assemblea::STATI[$assemblea->stato] ?? $assemblea->stato }}</td>
                             <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->presenze_count }}</td>
                             <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->punti_odg_count }}</td>
-                            <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->variations_count }}</td>
+                            <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->variations_count + $assemblea->cda_variations_count }}</td>
                             <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->started_at?->format('d/m/Y H:i') ?: '-' }}</td>
                             <td class="whitespace-nowrap px-4 py-3">{{ $assemblea->closed_at?->format('d/m/Y H:i') ?: '-' }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-right">

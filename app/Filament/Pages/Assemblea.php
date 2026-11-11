@@ -23,6 +23,7 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\ValidationException;
 
@@ -45,7 +46,7 @@ class Assemblea extends Page
     public function mount(): void
     {
         $active = AssembleaModel::query()
-            ->with(['presenze.socio', 'puntiOdg'])
+            ->with(['presenze.socio', 'puntiOdg', 'cdaVariations.socio'])
             ->where('stato', 'in_corso')
             ->latest('started_at')
             ->latest('id')
@@ -68,6 +69,23 @@ class Assemblea extends Page
                 Section::make('Dati assemblea')
                     ->columns(3)
                     ->schema([
+                        Select::make('tipo_assemblea')
+                            ->label('Tipo assemblea')
+                            ->options(AssembleaModel::TIPI_ASSEMBLEA)
+                            ->default('soci')
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set): void {
+                                if ($state === 'cda') {
+                                    $set('decisioni_variazioni_cda', app(AssembleaService::class)->pendingCdaVariations());
+                                    $set('punti_odg', [[
+                                        'titolo' => 'Esame e ratifica delle variazioni dei soci',
+                                        'descrizione' => 'Il CDA prende atto delle variazioni effettuate e delibera sulla ratifica dei verbali individuali riportati nel riepilogo.',
+                                        'discussione' => null,
+                                        'esito' => 'da_discutere',
+                                    ]]);
+                                }
+                            }),
                         DatePicker::make('data_assemblea')
                             ->label('Data assemblea')
                             ->required()
@@ -94,15 +112,16 @@ class Assemblea extends Page
                             ->label('Note iniziali')
                             ->columnSpanFull(),
                     ]),
-                Section::make('Appello soci')
+                Section::make(fn ($get): string => $get('tipo_assemblea') === 'cda' ? 'Appello CDA' : 'Appello soci')
                     ->schema([
                         Select::make('present_socio_ids')
                             ->label('Presenti')
-                            ->options(fn (): array => $this->socioOptions(activeOnly: true))
+                            ->options(fn ($get): array => $this->socioOptions(activeOnly: true, cdaOnly: $get('tipo_assemblea') === 'cda'))
                             ->multiple()
                             ->searchable()
                             ->preload(),
                         Repeater::make('deleghe')
+                            ->visible(fn ($get): bool => $get('tipo_assemblea') !== 'cda')
                             ->label('Deleghe')
                             ->addActionLabel('Aggiungi delega')
                             ->columns(2)
@@ -155,7 +174,35 @@ class Assemblea extends Page
                                     ->minValue(0),
                             ]),
                     ]),
+                Section::make('Variazioni da sottoporre al CDA')
+                    ->description('Il CDA esamina le variazioni già verbalizzate e delibera separatamente su ciascuna. Le variazioni restano sospese fino all’approvazione.')
+                    ->visible(fn ($get): bool => $get('tipo_assemblea') === 'cda')
+                    ->schema([
+                        Repeater::make('decisioni_variazioni_cda')
+                            ->label('Variazioni pendenti')
+                            ->hiddenLabel()
+                            ->addable(false)
+                            ->deletable(false)
+                            ->reorderable(false)
+                            ->columns(2)
+                            ->schema([
+                                TextInput::make('label')
+                                    ->label('Verbale / socio')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->columnSpan(1),
+                                Select::make('decisione_cda')
+                                    ->label('Decisione')
+                                    ->options(SocioVariation::DECISIONI_CDA)
+                                    ->placeholder('Da deliberare')
+                                    ->columnSpan(1),
+                                TextInput::make('socio_variation_id')
+                                    ->hidden()
+                                    ->dehydrated(),
+                            ]),
+                    ]),
                 Section::make('Delibere soci / variazioni')
+                    ->visible(fn ($get): bool => $get('tipo_assemblea') !== 'cda')
                     ->description('Le variazioni vengono applicate solo alla chiusura dell\'assemblea.')
                     ->schema([
                         Repeater::make('variations')
@@ -173,6 +220,9 @@ class Assemblea extends Page
                                 Select::make('tipo')
                                     ->label('Tipo variazione')
                                     ->options(SocioVariation::TIPI)
+                                    ->helperText(fn ($get): string => $get('tipo') === 'sospensione'
+                                        ? 'Documento interno secondo il regolamento del lavoro; non modifica lo status di socio e non passa dal CDA.'
+                                        : 'Il verbale individuale resta in attesa della decisione del CDA.')
                                     ->required()
                                     ->live(),
                                 DatePicker::make('data_effetto')
@@ -246,7 +296,7 @@ class Assemblea extends Page
             $data = $this->form->getState();
             $assemblea = app(AssembleaService::class)->startDigital($data);
             $this->currentAssembleaId = $assemblea->id;
-            $this->data = $this->stateFromAssemblea($assemblea->load(['presenze.socio', 'puntiOdg']));
+            $this->data = $this->stateFromAssemblea($assemblea->load(['presenze.socio', 'puntiOdg', 'cdaVariations.socio']));
             $this->form->fill($this->data);
         } catch (ValidationException $exception) {
             throw $exception;
@@ -313,6 +363,13 @@ class Assemblea extends Page
         try {
             $data = $this->form->getState();
 
+            if (($data['tipo_assemblea'] ?? 'soci') === 'cda' && collect($data['decisioni_variazioni_cda'] ?? [])
+                ->contains(fn (array $row): bool => blank($row['decisione_cda'] ?? null))) {
+                throw ValidationException::withMessages([
+                    'data.decisioni_variazioni_cda' => 'Indica l’esito per ogni variazione sottoposta al CDA.',
+                ]);
+            }
+
             if (blank($data['segretario'] ?? null)) {
                 throw ValidationException::withMessages([
                     'data.segretario' => 'Inserisci il nome del segretario prima di chiudere l\'assemblea.',
@@ -378,7 +435,7 @@ class Assemblea extends Page
     public function recentAssemblee()
     {
         return AssembleaModel::query()
-            ->withCount(['variations', 'presenze', 'puntiOdg'])
+            ->withCount(['variations', 'cdaVariations', 'presenze', 'puntiOdg'])
             ->latest('data_assemblea')
             ->latest('id')
             ->limit(10)
@@ -393,10 +450,14 @@ class Assemblea extends Page
             ->pluck('socio_id')
             ->unique()
             ->count();
-        $totale = Socio::query()
-            ->sociEffettivi()
-            ->attivi()
-            ->count();
+        $query = Socio::query()->attivi();
+        if (($this->data['tipo_assemblea'] ?? 'soci') === 'cda') {
+            $query->where('is_cda_member', true);
+            $deleghe = 0;
+        } else {
+            $query->sociEffettivi();
+        }
+        $totale = $query->count();
 
         return [
             'presenti' => $presenti,
@@ -421,6 +482,7 @@ class Assemblea extends Page
 
         return [
             'data_assemblea' => $today,
+            'tipo_assemblea' => 'soci',
             'titolo' => "Assemblea del {$today}",
             'modalita' => 'presenza',
             'luogo' => null,
@@ -438,6 +500,7 @@ class Assemblea extends Page
                 ],
             ],
             'variations' => [],
+            'decisioni_variazioni_cda' => [],
         ];
     }
 
@@ -445,6 +508,7 @@ class Assemblea extends Page
     {
         return [
             'data_assemblea' => $assemblea->data_assemblea?->toDateString(),
+            'tipo_assemblea' => $assemblea->tipo_assemblea ?: 'soci',
             'titolo' => $assemblea->titolo,
             'modalita' => $assemblea->modalita ?: 'presenza',
             'luogo' => $assemblea->luogo,
@@ -477,16 +541,34 @@ class Assemblea extends Page
                 ])
                 ->all(),
             'variations' => [],
+            'decisioni_variazioni_cda' => $assemblea->cdaVariations
+                ->where('approvazione_cda', 'in_attesa')
+                ->map(fn (SocioVariation $variation): array => [
+                    'socio_variation_id' => $variation->id,
+                    'decisione_cda' => $variation->decisione_cda,
+                    'label' => sprintf('%s - %s %s | %s',
+                        $variation->socio?->codice_socio,
+                        $variation->socio?->cognome,
+                        $variation->socio?->nome,
+                        SocioVariation::TIPI[$variation->tipo] ?? $variation->tipo,
+                    ),
+                ])->values()->all(),
         ];
     }
 
-    private function socioOptions(bool $activeOnly = false): array
+    private function socioOptions(bool $activeOnly = false, bool $cdaOnly = false): array
     {
-        $query = Socio::query()
-            ->sociEffettivi();
+        $query = Socio::query();
+
+        if (! $cdaOnly) {
+            $query->sociEffettivi();
+        }
 
         if ($activeOnly) {
             $query->attivi();
+        }
+        if ($cdaOnly) {
+            $query->where('is_cda_member', true);
         }
 
         return $query

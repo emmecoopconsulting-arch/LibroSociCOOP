@@ -77,6 +77,9 @@ class SocioVariationForm
         return Select::make('tipo')
             ->label('Tipo variazione')
             ->options(SocioVariation::TIPI)
+            ->helperText(fn ($get): ?string => $get('tipo') === 'sospensione'
+                ? 'Documento interno legato alla disciplina del lavoro; non modifica lo status di socio e non viene inviato al CDA.'
+                : 'La variazione genera un verbale individuale e resta in attesa della decisione del CDA.')
             ->required()
             ->live();
     }

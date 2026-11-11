@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'data_assemblea',
+    'tipo_assemblea',
     'titolo',
     'note',
     'presidente',
@@ -31,6 +32,11 @@ class Assemblea extends Model
             }
         });
     }
+
+    public const TIPI_ASSEMBLEA = [
+        'soci' => 'Assemblea dei soci',
+        'cda' => 'Consiglio di amministrazione',
+    ];
 
     public const STATI = [
         'bozza' => 'Bozza',
@@ -61,6 +67,16 @@ class Assemblea extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(SocioVariation::class);
+    }
+
+    public function cdaDecisions(): HasMany
+    {
+        return $this->hasMany(SocioVariationCdaDecision::class);
+    }
+
+    public function cdaVariations(): HasMany
+    {
+        return $this->hasMany(SocioVariation::class, 'cda_assemblea_id');
     }
 
     public function presenze(): HasMany
